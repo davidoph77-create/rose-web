@@ -1,0 +1,28 @@
+{
+  "cli": { "version": ">= 3.20.0" },
+  "build": {
+    "apk": {
+      "android": { "buildType": "apk" },
+      "env": {
+        "GOOGLE_SPEECH_API_KEY": "@GOOGLE_SPEECH_API_KEY"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "GOOGLE_SPEECH_API_KEY": "@GOOGLE_SPEECH_API_KEY"
+      }
+    },
+    "production": {
+      "android": { "gradleCommand": ":app:bundleRelease" },
+      "env": {
+        "GOOGLE_SPEECH_API_KEY": "@GOOGLE_SPEECH_API_KEY"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
+
+
