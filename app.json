@@ -3,36 +3,44 @@
     "name": "my-app-clean",
     "slug": "my-app-clean",
     "version": "1.0.0",
+
+    "scheme": "myappclean",
+
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+
+    "newArchEnabled": true,
+
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
+      "package": "com.davidoph.myappclean",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.davidoph.myappclean"
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "plugins": [
       "@react-native-voice/voice",
       "./plugins/withExcludeAndroidSupport"
     ],
+
     "extra": {
       "eas": {
         "projectId": "d23331ab-e4cd-4f54-9a23-537cf3c313f8"
@@ -40,4 +48,3 @@
     }
   }
 }
-

@@ -1,342 +1,448 @@
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
+  StyleSheet,
+  Image,
+  Pressable,
   TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   FlatList,
-  Image,
-  StatusBar,
-  ActivityIndicator,
   Alert,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Voice from "@react-native-voice/voice";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+
+import { playTtsFromBase64 } from "./src/tts/playTtsFromBase64";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "./src/lib/supabase";
 
 export default function App() {
-  const insets = useSafeAreaInsets();
+  // 🔐 x-app-key (APP_API_KEY) = secret côté Supabase Edge Functions
+  const X_APP_KEY = "rose-secret-123"; // EXACT (pas un prefix)
+
+  // UI
+  const [online, setOnline] = useState(true);
+  const [statusText, setStatusText] = useState("Micro prêt 🎤");
+
+  // Auth
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  // Chat
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([
-    { id: "m1", role: "rose", text: "Coucou 🌹 Je suis Rose. Appuie sur le micro et parle 💜" },
+  const [messages, setMessages] = useState(() => [
+    { id: "m1", from: "rose", text: "Coucou 🌹 Je suis Rose. Connecte-toi puis écris-moi 💜" },
   ]);
 
-  const [isListening, setIsListening] = useState(false);
-  const [voiceHint, setVoiceHint] = useState("Prête à t’écouter…");
-  const [partial, setPartial] = useState("");
-
   const listRef = useRef(null);
-  const styles = useMemo(() => createStyles(insets), [insets]);
 
-  useEffect(() => {
-    Voice.onSpeechStart = () => {
-      setIsListening(true);
-      setVoiceHint("Je t’écoute…");
-      setPartial("");
-    };
-
-    Voice.onSpeechEnd = () => {
-      setIsListening(false);
-      setVoiceHint("Dictée terminée ✅");
-      setTimeout(() => setVoiceHint("Prête à t’écouter…"), 1200);
-    };
-
-    Voice.onSpeechPartialResults = (e) => {
-      const txt = e?.value?.[0] ?? "";
-      setPartial(txt);
-    };
-
-    Voice.onSpeechResults = (e) => {
-      const txt = e?.value?.[0] ?? "";
-      if (txt) {
-        setInput((prev) => (!prev.trim() ? txt : (prev.trim() + " " + txt).trim()));
-      }
-      setPartial("");
-    };
-
-    Voice.onSpeechError = (e) => {
-      setIsListening(false);
-      setPartial("");
-      const msg =
-        e?.error?.message ||
-        e?.message ||
-        "Erreur dictée (autorisation / micro).";
-
-      setVoiceHint("Micro — échec");
-      Alert.alert(
-        "Micro — échec",
-        msg +
-          "\n\n1) Autorise le micro\n2) Ferme les apps qui utilisent le micro",
-        [{ text: "OK" }]
-      );
-
-      setTimeout(() => setVoiceHint("Prête à t’écouter…"), 1500);
-    };
-
-    return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
+  const avatarSource = useMemo(() => {
+    return null; // require("./assets/avatar.png") si tu veux
   }, []);
 
-  const send = () => {
-    const text = input.trim();
-    if (!text) return;
+  async function getJwt() {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || "";
+  }
 
-    const userMsg = { id: `u-${Date.now()}`, role: "user", text };
-    const roseMsg = {
-      id: `r-${Date.now() + 1}`,
-      role: "rose",
-      text: "Je t’ai entendu 💜 (Prochaine étape : vraie réponse IA + mémoire.)",
-    };
-
-    setMessages((prev) => [...prev, userMsg, roseMsg]);
-    setInput("");
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
-  };
-
-  const toggleMic = async () => {
+  async function signIn() {
     try {
-      // IMPORTANT: si le module natif n’est pas chargé -> startSpeech of null
-      // Dans ce cas, ce n’est pas App.js le problème : c’est le build natif.
-      if (isListening) {
-        await Voice.stop();
+      const e = email.trim();
+      if (!e || !password) {
+        Alert.alert("Login", "Entre ton email + mot de passe.");
         return;
       }
-      await Voice.start("fr-FR");
-    } catch (e) {
-      setIsListening(false);
-      const msg = e?.message || "Impossible de démarrer le micro.";
-      setVoiceHint("Impossible de démarrer le micro.");
-      Alert.alert("Micro — échec", msg, [{ text: "OK" }]);
-      setTimeout(() => setVoiceHint("Prête à t’écouter…"), 1500);
-    }
-  };
 
-  const renderItem = ({ item }) => {
-    const isUser = item.role === "user";
-    return (
-      <View style={[styles.bubbleRow, isUser ? styles.rowRight : styles.rowLeft]}>
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleRose]}>
-          <Text style={styles.bubbleText}>{item.text}</Text>
-        </View>
-      </View>
-    );
-  };
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: e,
+        password,
+      });
+
+      if (error) {
+        Alert.alert("Login error", error.message);
+        return;
+      }
+
+      if (!data?.session?.access_token) {
+        Alert.alert("Login", "Session manquante. Réessaie.");
+        return;
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        { id: `r-${Date.now()}`, from: "rose", text: "✅ Connecté. Parle-moi 💜" },
+      ]);
+      setTimeout(() => listRef.current?.scrollToEnd?.({ animated: true }), 50);
+    } catch (err) {
+      Alert.alert("Login error", String(err?.message ?? err));
+    }
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setMessages([{ id: "m1", from: "rose", text: "Déconnecté. Reconnecte-toi 💜" }]);
+  }
+
+  async function pushUserMessage(text) {
+    const t = text.trim();
+    if (!t) return;
+
+    // 1) message user
+    const userId = `u-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: userId, from: "user", text: t }]);
+    setInput("");
+    setTimeout(() => listRef.current?.scrollToEnd?.({ animated: true }), 50);
+
+    // 2) placeholder
+    const pendingId = `r-${Date.now()}-pending`;
+    setMessages((prev) => [...prev, { id: pendingId, from: "rose", text: "..." }]);
+
+    try {
+      setOnline(true);
+
+      const jwt = await getJwt();
+      if (!jwt) {
+        setOnline(false);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === pendingId ? { ...m, text: "❌ Pas connecté. Connecte-toi d’abord." } : m
+          )
+        );
+        return;
+      }
+
+      const fnUrl = `${SUPABASE_URL}/functions/v1/chat`;
+
+      const res = await fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,     // ✅ JWT obligatoire en scope user
+          apikey: SUPABASE_ANON_KEY,          // ✅ anon key
+          "x-app-key": X_APP_KEY,             // ✅ app key
+        },
+        body: JSON.stringify({
+          message: t,
+          tts: true,
+          scope: "user", // ✅ IMPORTANT : mémoire par user
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      const answer =
+        data?.answer ||
+        data?.error ||
+        `Erreur (${res.status})`;
+
+      setMessages((prev) => prev.map((m) => (m.id === pendingId ? { ...m, text: answer } : m)));
+
+      if (data?.audio_base64 && data?.audio_mime) {
+        await playTtsFromBase64(data.audio_base64, data.audio_mime);
+      }
+
+      setTimeout(() => listRef.current?.scrollToEnd?.({ animated: true }), 50);
+    } catch (e) {
+      setOnline(false);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === pendingId ? { ...m, text: "❌ Erreur réseau / API (voir console)" } : m
+        )
+      );
+      console.log("API error:", e);
+    }
+  }
+
+  async function onMicPress() {
+    setStatusText("Micro (demo) ✅");
+    setTimeout(() => setStatusText("Micro prêt 🎤"), 1200);
+  }
+
+  const isLoggedIn = true; // On peut aussi le calculer, mais on garde simple visuel.
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.bg} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+          <View style={styles.screen}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View style={styles.headerLeft}>
+                <View style={styles.avatarWrap}>
+                  {avatarSource ? (
+                    <Image source={avatarSource} style={styles.avatar} />
+                  ) : (
+                    <View style={styles.avatarPlaceholder}>
+                      <Text style={styles.avatarPlaceholderText}>R</Text>
+                    </View>
+                  )}
+                </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.avatarWrap}>
-            <Image source={require("./assets/avatar.png")} style={styles.avatar} resizeMode="cover" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.title}>Rose IA</Text>
+                  <Text style={styles.subtitle}>Rose+Violet · {statusText}</Text>
+                </View>
+              </View>
+
+              <View style={styles.headerRight}>
+                <View style={[styles.badge, online ? styles.badgeOn : styles.badgeOff]}>
+                  <Text style={styles.badgeText}>{online ? "EN LIGNE" : "HORS LIGNE"}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Login card */}
+            <View style={styles.loginCard}>
+              <Text style={styles.loginTitle}>Connexion (email + mot de passe)</Text>
+
+              <TextInput
+                style={styles.loginInput}
+                placeholder="Email"
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              <TextInput
+                style={styles.loginInput}
+                placeholder="Mot de passe"
+                placeholderTextColor="rgba(255,255,255,0.45)"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Pressable style={styles.loginBtn} onPress={signIn}>
+                  <Text style={styles.loginBtnText}>Se connecter</Text>
+                </Pressable>
+
+                <Pressable style={styles.logoutBtn} onPress={signOut}>
+                  <Text style={styles.logoutBtnText}>Déconnexion</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.loginHint}>
+                ⚠️ Tu dois avoir créé l’utilisateur dans Supabase Auth (Users).
+              </Text>
+            </View>
+
+            {/* Chat */}
+            <View style={styles.chatCard}>
+              <FlatList
+                ref={listRef}
+                data={messages}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.chatContent}
+                renderItem={({ item }) => {
+                  const isRose = item.from === "rose";
+                  return (
+                    <View
+                      style={[
+                        styles.bubble,
+                        isRose ? styles.bubbleRose : styles.bubbleUser,
+                        isRose ? styles.alignLeft : styles.alignRight,
+                      ]}
+                    >
+                      <Text style={styles.bubbleText}>{item.text}</Text>
+                    </View>
+                  );
+                }}
+                onContentSizeChange={() => listRef.current?.scrollToEnd?.({ animated: true })}
+              />
+            </View>
+
+            {/* Input bar */}
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+            >
+              <View style={styles.inputBar}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Écris…"
+                  placeholderTextColor="rgba(255,255,255,0.45)"
+                  value={input}
+                  onChangeText={setInput}
+                  onSubmitEditing={() => pushUserMessage(input)}
+                  returnKeyType="send"
+                />
+
+                <Pressable style={styles.micBtn} onPress={onMicPress}>
+                  <Text style={styles.micIcon}>🎤</Text>
+                </Pressable>
+
+                <Pressable style={styles.sendBtn} onPress={() => pushUserMessage(input)}>
+                  <Text style={styles.sendText}>Envoyer</Text>
+                </Pressable>
+              </View>
+
+              <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#14121B" }} />
+            </KeyboardAvoidingView>
           </View>
-          <View>
-            <Text style={styles.title}>Rose IA</Text>
-            <Text style={styles.subtitle}>Rose+Violet • Micro prêt 🎤</Text>
-          </View>
-        </View>
-
-        <View style={[styles.headerBadge, isListening && styles.headerBadgeOn]}>
-          <Text style={styles.badgeText}>{isListening ? "ÉCOUTE" : "EN LIGNE"}</Text>
-        </View>
-      </View>
-
-      <KeyboardAvoidingView
-        style={styles.kav}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 24}
-      >
-        {/* Chat */}
-        <View style={styles.chatCard}>
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(it) => it.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          />
-        </View>
-
-        {/* Voice hint */}
-        <View style={styles.micHint}>
-          <Text style={styles.micHintText}>
-            {voiceHint}
-            {partial ? `\n… ${partial}` : ""}
-          </Text>
-        </View>
-
-        {/* Input + Mic */}
-        <View style={styles.inputBar}>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Écris… ou parle au micro 🎤"
-            placeholderTextColor="rgba(255,255,255,0.55)"
-            style={styles.input}
-            returnKeyType="send"
-            onSubmitEditing={send}
-          />
-
-          <TouchableOpacity
-            style={[styles.micBtn, isListening && styles.micBtnOn]}
-            onPress={toggleMic}
-            activeOpacity={0.85}
-          >
-            {isListening ? <ActivityIndicator /> : <Text style={styles.micText}>🎤</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.sendBtn} onPress={send} activeOpacity={0.85}>
-            <Text style={styles.sendText}>Envoyer</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </SafeAreaView>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
-function createStyles(insets) {
-  const deep = "#0b0616";
-  const card = "rgba(255,255,255,0.10)";
-  const stroke = "rgba(255,255,255,0.18)";
-  const text = "#ffffff";
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#14121B" },
+  screen: { flex: 1, backgroundColor: "#14121B", paddingHorizontal: 14 },
 
-  // ✅ S21 gesture bar: on remonte la barre
-  const bottomSafe = Math.max(insets.bottom, 12);
+  header: {
+    paddingTop: 8,
+    paddingBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  headerRight: { alignItems: "flex-end" },
 
-  return {
-    safe: { flex: 1, backgroundColor: deep },
-    bg: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: deep },
+  avatarWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(160,110,255,0.45)",
+  },
+  avatar: { width: 44, height: 44, resizeMode: "cover" },
+  avatarPlaceholder: {
+    flex: 1,
+    backgroundColor: "rgba(160,110,255,0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarPlaceholderText: { color: "#EDE7FF", fontWeight: "800", fontSize: 18 },
 
-    header: {
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 12,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  title: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
+  subtitle: { color: "rgba(255,255,255,0.65)", marginTop: 2 },
 
-    avatarWrap: {
-      width: 54,
-      height: 54,
-      borderRadius: 18,
-      padding: 2,
-      backgroundColor: "rgba(255,255,255,0.10)",
-      borderWidth: 1,
-      borderColor: stroke,
-      overflow: "hidden",
-    },
-    avatar: { width: "100%", height: "100%", borderRadius: 16 },
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  badgeOn: { backgroundColor: "rgba(160,110,255,0.18)", borderColor: "rgba(160,110,255,0.55)" },
+  badgeOff: { backgroundColor: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.18)" },
+  badgeText: { color: "#EDE7FF", fontWeight: "800", letterSpacing: 0.5 },
 
-    title: { color: text, fontSize: 18, fontWeight: "800" },
-    subtitle: { color: "rgba(255,255,255,0.70)", fontSize: 12, marginTop: 2 },
+  loginCard: {
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    marginBottom: 10,
+  },
+  loginTitle: { color: "#fff", fontWeight: "800", marginBottom: 8, fontSize: 14 },
+  loginInput: {
+    height: 44,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    color: "#fff",
+    backgroundColor: "rgba(0,0,0,0.25)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    marginBottom: 8,
+  },
+  loginBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(160,110,255,0.25)",
+    borderWidth: 1,
+    borderColor: "rgba(160,110,255,0.45)",
+  },
+  loginBtnText: { color: "#fff", fontWeight: "800" },
+  logoutBtn: {
+    width: 130,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  logoutBtnText: { color: "#fff", fontWeight: "800" },
+  loginHint: { color: "rgba(255,255,255,0.6)", marginTop: 6, fontSize: 12 },
 
-    headerBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: stroke,
-      backgroundColor: "rgba(124,58,237,0.18)",
-    },
-    headerBadgeOn: { backgroundColor: "rgba(255,79,216,0.20)" },
-    badgeText: { color: text, fontSize: 11, fontWeight: "700", letterSpacing: 0.5 },
+  chatCard: {
+    flex: 1,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
+  },
+  chatContent: { padding: 14, paddingBottom: 18, gap: 12 },
 
-    kav: {
-      flex: 1,
-      paddingHorizontal: 16,
-      // ✅ important: remonte tout le bas au-dessus de la barre gestes
-      paddingBottom: bottomSafe,
-    },
+  bubble: {
+    maxWidth: "88%",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  bubbleRose: {
+    backgroundColor: "rgba(160,110,255,0.12)",
+    borderColor: "rgba(160,110,255,0.32)",
+  },
+  bubbleUser: {
+    backgroundColor: "rgba(255,105,180,0.10)",
+    borderColor: "rgba(255,105,180,0.22)",
+  },
+  alignLeft: { alignSelf: "flex-start" },
+  alignRight: { alignSelf: "flex-end" },
+  bubbleText: { color: "#FFFFFF", fontSize: 16, lineHeight: 22 },
 
-    chatCard: {
-      flex: 1,
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: stroke,
-      backgroundColor: card,
-      overflow: "hidden",
-    },
-    // ✅ grand padding bas pour ne pas être caché par la barre input
-    listContent: { padding: 14, paddingBottom: 18 },
-
-    bubbleRow: { marginBottom: 10, flexDirection: "row" },
-    rowLeft: { justifyContent: "flex-start" },
-    rowRight: { justifyContent: "flex-end" },
-
-    bubble: { maxWidth: "85%", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1 },
-    bubbleRose: { backgroundColor: "rgba(255,79,216,0.14)", borderColor: "rgba(255,79,216,0.25)" },
-    bubbleUser: { backgroundColor: "rgba(124,58,237,0.18)", borderColor: "rgba(124,58,237,0.28)" },
-
-    bubbleText: { color: "#fff", fontSize: 15, lineHeight: 20 },
-
-    micHint: {
-      marginTop: 10,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: stroke,
-      backgroundColor: "rgba(255,255,255,0.06)",
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-    },
-    micHintText: { color: "rgba(255,255,255,0.85)", fontSize: 12 },
-
-    inputBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      marginTop: 10,
-      padding: 10,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: stroke,
-      backgroundColor: "rgba(255,255,255,0.08)",
-      // ✅ encore un petit push vers le haut sur Samsung geste bar
-      marginBottom: bottomSafe,
-    },
-    input: {
-      flex: 1,
-      height: 46,
-      paddingHorizontal: 12,
-      borderRadius: 12,
-      color: "#fff",
-      backgroundColor: "rgba(0,0,0,0.15)",
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.12)",
-      fontSize: 15,
-    },
-
-    micBtn: {
-      width: 46,
-      height: 46,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.18)",
-      backgroundColor: "rgba(124,58,237,0.18)",
-    },
-    micBtnOn: { backgroundColor: "rgba(255,79,216,0.22)" },
-    micText: { fontSize: 18 },
-
-    sendBtn: {
-      height: 46,
-      paddingHorizontal: 14,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: "rgba(255,255,255,0.18)",
-      backgroundColor: "rgba(255,79,216,0.20)",
-    },
-    sendText: { color: "#fff", fontWeight: "800" },
-  };
-}
+  inputBar: {
+    marginTop: 12,
+    marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 10,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
+  micBtn: {
+    width: 48,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(160,110,255,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(160,110,255,0.35)",
+  },
+  micIcon: { fontSize: 20 },
+  sendBtn: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,105,180,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,105,180,0.30)",
+  },
+  sendText: { color: "#FFFFFF", fontWeight: "800" },
+});
