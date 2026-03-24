@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rose IA Web + Micro</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 920px;
+      height: 92vh;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 24px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    }
+
+    .header {
+      padding: 18px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+
+    .status {
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(34,197,94,0.2);
+      border: 1px solid rgba(34,197,94,0.35);
+      white-space: nowrap;
+    }
+
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .message {
+      max-width: 82%;
+      padding: 14px 16px;
+      border-radius: 18px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    }
+
+    .rose {
+      align-self: flex-start;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .meta {
+      font-size: 12px;
+      opacity: 0.75;
+      margin-top: 8px;
+    }
+
+    .composer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 14px;
+      display: flex;
+      gap: 10px;
+      background: rgba(0,0,0,0.12);
+      align-items: stretch;
+    }
+
+    .composer textarea {
+      flex: 1;
+      resize: none;
+      min-height: 56px;
+      max-height: 140px;
+      border: none;
+      outline: none;
+      border-radius: 16px;
+      padding: 14px 16px;
+      font-size: 16px;
+      font-family: inherit;
+      background: rgba(255,255,255,0.95);
+      color: #111827;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      border: none;
+      outline: none;
+      border-radius: 16px;
+      padding: 0 18px;
+      min-width: 110px;
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+      cursor: pointer;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    }
+
+    .btn.mic {
+      min-width: 64px;
+      font-size: 22px;
+    }
+
+    .btn.secondary {
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.16);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .config {
+      padding: 10px 14px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .config label {
+      font-size: 12px;
+      opacity: 0.85;
+      min-width: 120px;
+    }
+
+    .config input[type="text"] {
+      flex: 1;
+      border: none;
+      outline: none;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      opacity: 0.95;
+    }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.75;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 0;
+      }
+
+      .app {
+        height: 100vh;
+        max-width: 100%;
+        border-radius: 0;
+      }
+
+      .message {
+        max-width: 92%;
+      }
+
+      .header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .composer {
+        flex-direction: column;
+      }
+
+      .buttons {
+        width: 100%;
+      }
+
+      .btn {
+        flex: 1;
+        min-height: 52px;
+      }
+
+      .btn.mic {
+        flex: 0 0 72px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div>
+        <div class="title">🌹 Rose IA</div>
+        <div class="subtitle">Version web avec micro et voix</div>
+      </div>
+      <div class="status" id="statusText">Prête</div>
+    </div>
+
+    <div class="chat" id="chat"></div>
+
+    <div class="composer">
+      <textarea id="messageInput" placeholder="Écris ou dicte un message à Rose..."></textarea>
+      <div class="buttons">
+        <button class="btn mic secondary" id="micBtn" title="Micro">🎤</button>
+        <button class="btn" id="sendBtn">Envoyer</button>
+      </div>
+    </div>
+
+    <div class="config">
+      <div class="row">
+        <label for="apiUrl">URL API Rose</label>
+        <input
+          id="apiUrl"
+          type="text"
+          value="https://intmggzouwcaidotikbt.supabase.co/functions/v1/rose-agent-system"
+        />
+      </div>
+
+      <div class="row">
+        <label class="toggle">
+          <input type="checkbox" id="speakToggle" checked />
+          Lire la réponse de Rose à voix haute
+        </label>
+
+        <label class="toggle">
+          <input type="checkbox" id="historyToggle" checked />
+          Envoyer l'historique
+        </label>
+      </div>
+
+      <div class="hint">
+        Le micro fonctionne surtout dans Chrome / Edge. Sur certains téléphones, le navigateur doit avoir l'autorisation micro.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const messageInput = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const micBtn = document.getElementById("micBtn");
+    const apiUrlInput = document.getElementById("apiUrl");
+    const statusText = document.getElementById("statusText");
+    const speakToggle = document.getElementById("speakToggle");
+    const historyToggle = document.getElementById("historyToggle");
+
+    const userId = "david";
+    let history = [];
+    let isRecording = false;
+    let recognition = null;
+    let currentUtterance = null;
+
+    function addMessage(role, text, meta = "") {
+      const div = document.createElement("div");
+      div.className = `message ${role}`;
+
+      const content = document.createElement("div");
+      content.textContent = text;
+      div.appendChild(content);
+
+      if (meta) {
+        const metaDiv = document.createElement("div");
+        metaDiv.className = "meta";
+        metaDiv.textContent = meta;
+        div.appendChild(metaDiv);
+      }
+
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function setStatus(text) {
+      statusText.textContent = text;
+    }
+
+    function stopSpeaking() {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      currentUtterance = null;
+    }
+
+    function speakText(text) {
+      if (!speakToggle.checked) return;
+      if (!("speechSynthesis" in window)) return;
+
+      stopSpeaking();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "fr-FR";
+      utterance.rate = 1;
+      utterance.pitch = 1.05;
+
+      currentUtterance = utterance;
+      setStatus("Rose parle...");
+      utterance.onend = () => {
+        currentUtterance = null;
+        setStatus("Prête");
+      };
+      utterance.onerror = () => {
+        currentUtterance = null;
+        setStatus("Prête");
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    async function sendMessage() {
+      const message = messageInput.value.trim();
+      const apiUrl = apiUrlInput.value.trim();
+
+      if (!message) return;
+      if (!apiUrl) {
+        alert("Ajoute l'URL API de Rose.");
+        return;
+      }
+
+      stopSpeaking();
+
+      addMessage("user", message);
+      const localHistory = historyToggle.checked ? [...history, { role: "user", content: message }] : [];
+
+      history.push({ role: "user", content: message });
+      messageInput.value = "";
+      sendBtn.disabled = true;
+      micBtn.disabled = true;
+      setStatus("Rose réfléchit...");
+
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            message,
+            history: historyToggle.checked ? localHistory : [],
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          const err = data?.error || "Erreur inconnue";
+          addMessage("rose", `Erreur : ${err}`);
+          setStatus("Erreur");
+          return;
+        }
+
+        const meta = `intent: ${data.intent} | mood: ${data.mood} | source: ${data.source}`;
+        addMessage("rose", data.reply, meta);
+
+        history.push({ role: "assistant", content: data.reply });
+        setStatus("Prête");
+        speakText(data.reply);
+      } catch (error) {
+        addMessage("rose", `Erreur réseau : ${error.message}`);
+        setStatus("Hors ligne");
+      } finally {
+        sendBtn.disabled = false;
+        micBtn.disabled = false;
+      }
+    }
+
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (!SpeechRecognition) {
+        micBtn.disabled = true;
+        micBtn.title = "Micro non supporté sur ce navigateur";
+        return null;
+      }
+
+      const rec = new SpeechRecognition();
+      rec.lang = "fr-FR";
+      rec.continuous = false;
+      rec.interimResults = true;
+
+      rec.onstart = () => {
+        isRecording = true;
+        micBtn.textContent = "⏹️";
+        setStatus("J'écoute...");
+      };
+
+      rec.onresult = (event) => {
+        let finalTranscript = "";
+        let interimTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          } else {
+            interimTranscript += transcript;
+          }
+        }
+
+        messageInput.value = (finalTranscript || interimTranscript).trim();
+      };
+
+      rec.onerror = () => {
+        isRecording = false;
+        micBtn.textContent = "🎤";
+        setStatus("Micro indisponible");
+      };
+
+      rec.onend = () => {
+        isRecording = false;
+        micBtn.textContent = "🎤";
+        setStatus("Prête");
+      };
+
+      return rec;
+    }
+
+    function toggleMic() {
+      if (!recognition) {
+        alert("Le micro n'est pas supporté sur ce navigateur.");
+        return;
+      }
+
+      stopSpeaking();
+
+      if (isRecording) {
+        recognition.stop();
+        return;
+      }
+
+      recognition.start();
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    micBtn.addEventListener("click", toggleMic);
+
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    recognition = initSpeechRecognition();
+
+    addMessage(
+      "rose",
+      "Bonjour David 🌹 Je suis Rose. Tu peux m'écrire ou utiliser le micro."
+    );
+  </script>
+</body>
+</html>
