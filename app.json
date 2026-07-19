@@ -1,50 +1,27 @@
 {
   "expo": {
-    "name": "my-app-clean",
-    "slug": "my-app-clean",
+    "name": "Rose IA",
+    "slug": "rose-ia",
     "version": "1.0.0",
-
-    "scheme": "myappclean",
-
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-
-    "newArchEnabled": true,
-
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-
-    "ios": {
-      "supportsTablet": true
-    },
-
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"],
     "android": {
-      "package": "com.davidoph.myappclean",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "package": "com.davidoph.roseia",
+      "permissions": [
+        "RECORD_AUDIO",
+        "INTERNET",
+        "POST_NOTIFICATIONS"
+      ]
     },
-
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-
     "plugins": [
       "@react-native-voice/voice",
-      "./plugins/withExcludeAndroidSupport"
+      "expo-dev-client",
+      "@react-native-google-signin/google-signin",
+      "expo-notifications"
     ],
-
     "extra": {
-      "eas": {
-        "projectId": "d23331ab-e4cd-4f54-9a23-537cf3c313f8"
-      }
+      "googleWebClientId": "705330769466-7tcvltceskebfhekf1ggim89aeiej41l.apps.googleusercontent.com"
     }
   }
 }

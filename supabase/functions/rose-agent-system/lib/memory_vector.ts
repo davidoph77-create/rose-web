@@ -1,110 +1,105 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { createEmbedding } from "./embeddings.ts";
 
-function getSupabase() {
-  const url = Deno.env.get("ROSE_SUPABASE_URL") ?? "";
-  const key = Deno.env.get("ROSE_SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
-  return createClient(url, key);
-}
-
-export async function saveMemoryEmbedding(params: {
-  memory_id: string;
-  user_id: string;
+type VectorMemoryResult = {
+  id?: string;
   content: string;
-}): Promise<boolean> {
-  try {
-    const supabase = getSupabase();
+  score: number;
+  category?: string;
+  importance?: number;
+};
 
-    const embedding = await createEmbedding(params.content);
+function getSupabaseAdmin() {
+  const url =
+    Deno.env.get("ROSE_SUPABASE_URL") ||
+    Deno.env.get("SUPABASE_URL") ||
+    "";
 
-    if (!embedding) {
-      console.warn("Embedding non généré");
-      return false;
-    }
+  const serviceRole =
+    Deno.env.get("ROSE_SUPABASE_SERVICE_ROLE_KEY") ||
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+    "";
 
-    const { error } = await supabase
-      .from("rose_memory_vectors")
-      .upsert({
-        memory_id: params.memory_id,
-        user_id: params.user_id,
-        content: params.content,
-        embedding,
-      }, {
-        onConflict: "memory_id",
-      });
-
-    if (error) {
-      console.error("Erreur saveMemoryEmbedding:", error.message);
-      return false;
-    }
-
-    return true;
-
-  } catch (error) {
-    console.error("Exception saveMemoryEmbedding:", error);
-    return false;
+  if (!url || !serviceRole) {
+    throw new Error("Supabase admin non configuré");
   }
+
+  return createClient(url, serviceRole);
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  const length = Math.min(a.length, b.length);
+function tokenize(text: string): string[] {
+  return normalizeText(text)
+    .split(" ")
+    .filter((t) => t.length >= 3);
+}
 
-  for (let i = 0; i < length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
+function jaccardScore(a: string[], b: string[]): number {
+  const setA = new Set(a);
+  const setB = new Set(b);
 
-  if (normA === 0 || normB === 0) return 0;
+  const intersection = [...setA].filter((x) => setB.has(x)).length;
+  const union = new Set([...setA, ...setB]).size;
 
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  if (union === 0) return 0;
+  return intersection / union;
 }
 
 export async function searchRelevantVectorMemories(
   user_id: string,
   query: string,
   limit = 5,
-): Promise<Array<{ content: string; score: number }>> {
-
+): Promise<VectorMemoryResult[]> {
   try {
-    const supabase = getSupabase();
-
-    const queryEmbedding = await createEmbedding(query);
-
-    if (!queryEmbedding) {
-      console.warn("Embedding de requête non généré");
-      return [];
-    }
+    const supabase = getSupabaseAdmin();
 
     const { data, error } = await supabase
-      .from("rose_memory_vectors")
-      .select("content, embedding")
+      .from("rose_memories")
+      .select("id, content, category, importance")
       .eq("user_id", user_id)
-      .limit(50);
+      .order("importance", { ascending: false })
+      .limit(100);
 
     if (error) {
-      console.error("Erreur searchRelevantVectorMemories:", error.message);
+      console.error("searchRelevantVectorMemories error:", error.message);
       return [];
     }
 
-    const results = (data ?? [])
-      .filter((item) => Array.isArray(item.embedding))
-      .map((item) => ({
-        content: item.content as string,
-        score: cosineSimilarity(queryEmbedding, item.embedding as number[]),
-      }))
+    const queryTokens = tokenize(query);
+
+    const scored = (data || []).map((row) => {
+      const contentTokens = tokenize(row.content);
+      let score = jaccardScore(queryTokens, contentTokens);
+
+      if (row.category === "project" && normalizeText(query).includes("projet")) {
+        score += 0.2;
+      }
+
+      score += Math.min((row.importance || 0) / 100, 0.1);
+
+      return {
+        id: row.id,
+        content: row.content,
+        category: row.category,
+        importance: row.importance,
+        score,
+      };
+    });
+
+    return scored
+      .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
-
-    return results;
-
   } catch (error) {
-    console.error("Exception searchRelevantVectorMemories:", error);
+    console.error("searchRelevantVectorMemories exception:", error);
     return [];
   }
 }

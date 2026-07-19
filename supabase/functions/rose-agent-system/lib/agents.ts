@@ -10,6 +10,7 @@ import { runExecutionEngine } from "./execution_engine.ts";
 import { runExecutionEngineV2 } from "./execution_engine_v2.ts";
 import { runExecutionEngineV3 } from "./execution_engine_v3.ts";
 import { buildAutonomousPlan } from "./planner.ts";
+import { runAutonomyLoop } from "./autonomy_loop.ts";
 import { uniqueArray, truncate } from "./utils.ts";
 
 export async function emotionAgent(
@@ -173,13 +174,37 @@ Résumé :
 ${exec.final_summary}`;
 }
 
+export async function autonomyAgent(
+  intent: Intent,
+  message: string,
+): Promise<string> {
+  const loop = await runAutonomyLoop({
+    intent,
+    message,
+  });
+
+  return `Autonomy Loop :
+Objectif : ${loop.objective}
+Stratégie : ${loop.strategy}
+Itérations : ${loop.iterations}
+Raison d'arrêt : ${loop.stop_reason}
+
+Boucle :
+${loop.steps.map((step) =>
+  `${step.iteration}. ${step.focus} [${step.status}] — ${step.output}`
+).join("\n")}
+
+Résumé :
+${loop.final_summary}`;
+}
+
 export async function taskAgent(
   message: string,
   intent: Intent,
 ): Promise<string> {
   const text = message.toLowerCase();
 
-  if (intent !== "task" && !/tache|todo|a faire|checklist|mission/.test(text)) {
+  if (intent !== "task" && !/tache|tâche|todo|a faire|à faire|checklist|mission/.test(text)) {
     return "Aucune tâche explicite détectée.";
   }
 

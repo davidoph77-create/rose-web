@@ -1,198 +1,228 @@
-import { detectIntent } from "./intent.ts";
-import { detectMood, detectMoodScore } from "./mood.ts";
-import { inferActions } from "./actions.ts";
-import { summarizeConversation } from "./summary.ts";
-import {
-  emotionAgent,
-  memoryAgent,
-  plannerAgent,
-  taskAgent,
-  calendarAgent,
-  searchAgent,
-  growthAgent,
-  safetyAgent,
-  buildSelectedAgents,
-  autonomousPlannerAgent,
-  executionAgent,
-  executionAgentV2,
-  executionAgentV3,
-} from "./agents.ts";
-import {
-  saveMemory,
-  shouldSaveMemory,
-  saveConversation,
-} from "./memory.ts";
-import { callLLM } from "./llm.ts";
-import {
-  OrchestratorInput,
-  OrchestratorOutput,
-} from "./types.ts";
-import { runWebAgent } from "./web_agent.ts";
+import OpenAI from "https://esm.sh/openai@4.28.0";
 
-export async function orchestrateRose(
-  input: OrchestratorInput,
-): Promise<OrchestratorOutput> {
-  const mood = detectMood(input.message);
-  const mood_score = detectMoodScore(input.message);
-  const intent = detectIntent(input.message);
+type MemoryItem = {
+  summary?: string | null;
+  content?: string | null;
+};
 
-  const actions = inferActions(intent);
-  const selected_agents = buildSelectedAgents(intent);
+export type OrchestratorResult = {
+  reply: string;
+  goal: string | null;
+  task: string | null;
+  plan: string | null;
+  roadmap: string | null;
+  mood: string | null;
+  priority: number;
+  autonomous_suggestion: string | null;
+  next_action: string | null;
+  should_save_memory: boolean;
+  autonomy_level: "low" | "medium" | "high" | "ultimate";
+  business_advice: string | null;
+  daily_plan: string | null;
+  rose_improvement: string | null;
+};
 
-  const summary = summarizeConversation(
-    input.message,
-    input.history ?? [],
-    intent,
-  );
+const openai = new OpenAI({
+  apiKey: Deno.env.get("OPENAI_API_KEY") || "",
+});
 
-  const memory_context = await memoryAgent(input.user_id, input.message);
-  const emotion_context = await emotionAgent(mood, mood_score);
-  const planner_context = await plannerAgent(intent, input.message);
-  const task_context = await taskAgent(input.message, intent);
-  const calendar_context = await calendarAgent(intent);
-  const search_context = await searchAgent(input.message, intent);
-  const growth_context = await growthAgent(intent);
-  const safety_context = await safetyAgent(input.message, intent);
-  const autonomous_plan_context = await autonomousPlannerAgent(intent, input.message);
-  const execution_context = await executionAgent(intent, input.message);
-  const execution_v2_context = await executionAgentV2(intent, input.message);
-  const execution_v3_context = await executionAgentV3(intent, input.message);
+function cleanString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  return v.length > 0 ? v : null;
+}
 
-  const web_agent = await runWebAgent(input.message);
+function cleanNumber(value: unknown): number {
+  const n = Number(value);
+  if (Number.isNaN(n)) return 0.5;
+  return Math.max(0, Math.min(1, n));
+}
 
-  const system_prompt = `
-Tu es Rose, une IA personnelle intelligente, chaleureuse, bienveillante et cohérente.
+function memoryToText(memory: MemoryItem[] = []) {
+  const items = memory
+    .map((m) => cleanString(m.summary) || cleanString(m.content))
+    .filter(Boolean)
+    .slice(0, 20);
 
-RÈGLES IMPORTANTES :
-- Tu peux utiliser la mémoire utilisateur pour répondre de façon plus pertinente.
-- Si une information est déjà connue, tu peux dire naturellement : "Je me souviens que..."
-- Ne dis jamais que tu ne peux pas mémoriser : la mémoire est gérée par le système.
-- Réponds de manière naturelle, claire, utile, structurée et sans répétition inutile.
-- Si une recherche web semble utile, tu peux le dire clairement et proposer la requête pertinente.
-- Si une demande est complexe, appuie-toi sur le plan autonome, l'execution engine, l'execution engine v2 et l'execution engine v3.
-- Si utile, présente la réponse sous forme d'étapes concrètes.
-- Quand l'utilisateur demande une amélioration, propose une suite exploitable.
+  if (!items.length) return "Aucune mémoire disponible.";
 
-CONTEXTE ÉMOTION :
-${emotion_context}
+  return items.map((m) => `- ${m}`).join("\n");
+}
 
-MÉMOIRE UTILISATEUR :
-${memory_context}
+function parseJsonSafe(text: string): any | null {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
 
-ANALYSE :
-${planner_context}
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+}
 
-PLAN AUTONOME :
-${autonomous_plan_context}
+function fallback(input: string): OrchestratorResult {
+  return {
+    reply:
+      "Je suis là 💜 Je peux t’aider à transformer ça en objectif clair, en plan d’action et en prochaines étapes concrètes.",
+    goal: input.length > 8 ? input : null,
+    task: input.length > 8 ? "Clarifier la prochaine étape utile." : null,
+    plan:
+      "1. Clarifier l’objectif\n2. Définir la priorité\n3. Choisir une action simple à faire aujourd’hui",
+    roadmap:
+      "Étape 1 : diagnostic\nÉtape 2 : plan\nÉtape 3 : action\nÉtape 4 : suivi",
+    mood: "supportive",
+    priority: 0.6,
+    autonomous_suggestion:
+      "Je te conseille de commencer par une action petite mais concrète maintenant.",
+    next_action: "Définir exactement le résultat que tu veux obtenir.",
+    should_save_memory: false,
+    autonomy_level: "medium",
+    business_advice: null,
+    daily_plan: null,
+    rose_improvement:
+      "Améliorer la mémoire et l’organisation des tâches de Rose.",
+  };
+}
 
-EXECUTION ENGINE :
-${execution_context}
+export async function runOrchestrator(
+  input: string,
+  memory: MemoryItem[] = []
+): Promise<OrchestratorResult> {
+  const userInput = String(input || "").trim();
 
-EXECUTION ENGINE V2 :
-${execution_v2_context}
-
-EXECUTION ENGINE V3 :
-${execution_v3_context}
-
-TÂCHES :
-${task_context}
-
-CALENDRIER :
-${calendar_context}
-
-RECHERCHE :
-${search_context}
-
-AGENT WEB :
-- should_search: ${web_agent.should_search}
-- reason: ${web_agent.reason}
-- query: ${web_agent.query || "aucune"}
-- results_count: ${web_agent.results.length}
-
-ÉVOLUTION SYSTÈME :
-${growth_context}
-
-SÉCURITÉ :
-${safety_context}
-
-RÉSUMÉ CONVERSATION :
-${summary.short_summary}
-
-POINTS CLÉS :
-${summary.key_points.join(", ") || "aucun"}
-
-BESOINS UTILISATEUR :
-${summary.user_needs.join(", ") || "réponse utile"}
-
-ACTIONS :
-${actions.map((a) => a.type).join(", ") || "aucune"}
-
-INSTRUCTION FINALE :
-- Si la mémoire contient une information utile, utilise-la dans la réponse.
-- Si l'utilisateur demande ce que tu sais sur son projet, réponds directement avec les éléments les plus utiles.
-- Si plusieurs souvenirs proches existent, synthétise-les sans te répéter.
-- Si une recherche web est pertinente, formule-la clairement dans la réponse.
-- Si un plan autonome est utile, structure naturellement la réponse en étapes.
-- Si l'execution engine, v2 ou v3 est utile, utilise leurs étapes pour proposer une suite concrète.
-- Réponds comme une vraie IA personnelle avancée, pas comme un simple chatbot.
-
-Réponds maintenant à l'utilisateur.
-`.trim();
-
-  const reply = await callLLM({
-    system: system_prompt,
-    history: input.history ?? [],
-    user: input.message,
-  });
-
-  let memory_saved = false;
-  let memory_error: string | null = null;
-  let memory_debug: Record<string, unknown> | null = null;
-
-  if (shouldSaveMemory(input.message, intent)) {
-    const result = await saveMemory(
-      input.user_id,
-      input.message,
-      intent,
-    );
-
-    memory_saved = result.ok;
-    memory_error = result.error ?? null;
-    memory_debug = result.debug ?? null;
+  if (!userInput) {
+    return {
+      reply: "Je suis là 💜 Dis-moi ce que tu veux faire.",
+      goal: null,
+      task: null,
+      plan: null,
+      roadmap: null,
+      mood: "waiting",
+      priority: 0.2,
+      autonomous_suggestion: null,
+      next_action: null,
+      should_save_memory: false,
+      autonomy_level: "low",
+      business_advice: null,
+      daily_plan: null,
+      rose_improvement: null,
+    };
   }
 
-  await saveConversation({
-    user_id: input.user_id,
-    conversation_id: input.conversation_id ?? null,
-    user_message: input.message,
-    assistant_reply: reply,
-    mood,
-    mood_score,
-    intent,
-    summary,
-  });
+  try {
+    const memoryText = memoryToText(memory);
 
-  return {
-    ok: true,
-    source: "rose_execution_engine_v3_enabled",
-    reply,
-    mood,
-    intent,
-    selected_agents,
-    actions,
-    memory_saved,
-    conversation_summary: summary,
-    debug: {
-      memory_error,
-      memory_debug,
-      mood_score,
-      selected_agents_count: selected_agents.length,
-      memory_context,
-      web_agent,
-      autonomous_plan_context,
-      execution_context,
-      execution_v2_context,
-      execution_v3_context,
-    },
-  };
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.68,
+      messages: [
+        {
+          role: "system",
+          content: `
+Tu es Rose IA, une assistante personnelle autonome avancée, douce, féminine, intelligente, motivante et structurée.
+
+MODE ULTIME V4 :
+Tu ne fais pas seulement du chat.
+Tu analyses, priorises, planifies, proposes, mémorises et aides l'utilisateur à avancer.
+
+Contexte utilisateur important probable :
+- L'utilisateur développe une IA personnelle appelée Rose.
+- Il veut une application mobile + PC.
+- Il veut une IA avec voix, mémoire, tâches, objectifs, roadmap et autonomie.
+- Il travaille dans la couverture/charpente, souvent seul.
+- Il veut améliorer ses revenus, environ de 3000€ vers 8000€.
+- Il aime les réponses directes, pratiques, prêtes à coller quand il code.
+
+Tu dois pouvoir aider sur 4 axes :
+1. Projet Rose IA : architecture, code, debug, roadmap, auto-amélioration.
+2. Business / argent : objectifs, sous-traitance, clients, prix, actions rentables.
+3. Organisation quotidienne : planning, tâches, priorités, chantier.
+4. Autonomie IA : mémoire, objectifs, boucle de réflexion, actions proposées.
+
+Règles importantes :
+- Réponds en français naturel.
+- Sois claire, utile, concrète.
+- Ne prétends jamais avoir exécuté une action externe réelle si elle n’est pas faite.
+- Tu peux proposer une action autonome, mais pas dire que tu l’as faite si le système ne l’a pas réellement exécutée.
+- Ne donne pas de promesse irréaliste.
+- Priorise toujours la prochaine action concrète.
+- Utilise la mémoire si utile.
+
+Mémoire disponible :
+${memoryText}
+
+Réponds UNIQUEMENT en JSON valide, sans markdown, sans texte autour :
+
+{
+  "reply": "réponse visible dans l'application",
+  "goal": "objectif principal ou null",
+  "task": "tâche prioritaire ou null",
+  "plan": "plan court en étapes ou null",
+  "roadmap": "roadmap courte si utile ou null",
+  "mood": "calm|supportive|motivating|planning|urgent|creative|waiting",
+  "priority": 0.0,
+  "autonomous_suggestion": "suggestion proactive ou null",
+  "next_action": "prochaine action concrète ou null",
+  "should_save_memory": true,
+  "autonomy_level": "low|medium|high|ultimate",
+  "business_advice": "conseil business utile ou null",
+  "daily_plan": "planning court si utile ou null",
+  "rose_improvement": "amélioration technique de Rose si utile ou null"
+}
+
+Règles JSON :
+- reply doit toujours être rempli.
+- priority doit être entre 0 et 1.
+- should_save_memory true seulement si l'information est utile plus tard.
+- autonomy_level ultimate si tu fournis objectif + tâche + plan + next_action.
+- Utilise null réel, jamais "null" en texte.
+`,
+        },
+        { role: "user", content: userInput },
+      ],
+    });
+
+    const raw = completion.choices?.[0]?.message?.content || "";
+    const parsed = parseJsonSafe(raw);
+
+    if (!parsed) return fallback(userInput);
+
+    const level = parsed.autonomy_level;
+    const autonomyLevel =
+      level === "ultimate" ||
+      level === "high" ||
+      level === "medium" ||
+      level === "low"
+        ? level
+        : "medium";
+
+    return {
+      reply:
+        cleanString(parsed.reply) ||
+        "Je suis là 💜 Je peux t’aider à avancer étape par étape.",
+      goal: cleanString(parsed.goal),
+      task: cleanString(parsed.task),
+      plan: cleanString(parsed.plan),
+      roadmap: cleanString(parsed.roadmap),
+      mood: cleanString(parsed.mood) || "supportive",
+      priority: cleanNumber(parsed.priority),
+      autonomous_suggestion: cleanString(parsed.autonomous_suggestion),
+      next_action: cleanString(parsed.next_action),
+      should_save_memory:
+        typeof parsed.should_save_memory === "boolean"
+          ? parsed.should_save_memory
+          : true,
+      autonomy_level: autonomyLevel,
+      business_advice: cleanString(parsed.business_advice),
+      daily_plan: cleanString(parsed.daily_plan),
+      rose_improvement: cleanString(parsed.rose_improvement),
+    };
+  } catch (e) {
+    console.log("orchestrator V4 ultime error =", e);
+    return fallback(userInput);
+  }
 }
