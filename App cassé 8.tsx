@@ -9,7 +9,6 @@ import EntrepriseScreen from "./src/screens/EntrepriseScreen";
 import ApprentissageScreen from "./src/screens/ApprentissageScreen";
 import CerveauScreen from "./src/screens/CerveauScreen";
 import CoachScreen from "./src/screens/CoachScreen";
-import AutonomieScreen from "./src/screens/AutonomieScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -1400,6 +1399,133 @@ function Kpi({ label, value }: any) {
   );
 }
 
+function AutonomieScreen({
+  analyseCore,
+  autonomieRose,
+  agentWebRose,
+  agendaRose,
+  genererAutonomieRose,
+  genererAgentWeb,
+  genererAgendaRose,
+}: any) {
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        Autonomie de Rose
+      </Text>
+
+      <View style={styles.grid}>
+        <Kpi
+          label="Autonomie"
+          value={`${analyseCore.scoreAutonomie}%`}
+        />
+
+        <Kpi
+          label="Décisions"
+          value={String(analyseCore.decisionsProposees)}
+        />
+
+        <Kpi
+          label="Web en attente"
+          value={String(analyseCore.webEnAttente)}
+        />
+
+        <Kpi
+          label="Agenda"
+          value={String(analyseCore.agendaEnAttente)}
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          État de l’autonomie
+        </Text>
+
+        <Text style={styles.text}>
+          {autonomieRose ||
+            "Rose n’a pas encore effectué son analyse d’autonomie."}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={genererAutonomieRose}
+        >
+          <Text style={styles.mainButtonText}>
+            Analyser l’autonomie
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Agent Web autonome
+        </Text>
+
+        <Text style={styles.text}>
+          {agentWebRose ||
+            "Aucune stratégie Web autonome n’a encore été générée."}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={genererAgentWeb}
+        >
+          <Text style={styles.mainButtonText}>
+            Générer la stratégie Web
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Organisation autonome
+        </Text>
+
+        <Text style={styles.text}>
+          {agendaRose ||
+            "Rose n’a pas encore analysé l’organisation de ton agenda."}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={genererAgendaRose}
+        >
+          <Text style={styles.mainButtonText}>
+            Générer l’organisation Agenda
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Règles de sécurité
+        </Text>
+
+        <Text style={styles.text}>
+          • Rose prépare les actions avant de les exécuter.
+        </Text>
+
+        <Text style={styles.text}>
+          • Les décisions importantes restent soumises à ta validation.
+        </Text>
+
+        <Text style={styles.text}>
+          • Les recherches Web sont préparées avant toute action externe.
+        </Text>
+
+        <Text style={styles.text}>
+          • Les événements Agenda restent locaux tant que Google Calendar
+          n’est pas connecté.
+        </Text>
+
+        <Text style={styles.text}>
+          • Rose utilise sa mémoire pour améliorer progressivement ses
+          recommandations.
+        </Text>
+      </View>
+    </View>
+  );
+}
 function TaskScreen({
   roseTasks,
   setRoseTasks,
