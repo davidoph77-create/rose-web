@@ -5,8 +5,6 @@ import GoalsScreen from "./src/screens/GoalsScreen";
 import WebScreen from "./src/screens/WebScreen";
 import DecisionScreen from "./src/screens/DecisionScreen";
 import AgendaScreen from "./src/screens/AgendaScreen";
-import EntrepriseScreen from "./src/screens/EntrepriseScreen";
-import ApprentissageScreen from "./src/screens/ApprentissageScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -1397,6 +1395,164 @@ function Kpi({ label, value }: any) {
   );
 }
 
+function EntrepriseScreen({
+  memoires,
+  objectifs,
+}: any) {
+  const memoiresEntreprise = memoires.filter(
+    (m: Memoire) => m.categorie === "Entreprise"
+  );
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        Rose Entreprise
+      </Text>
+
+      <View style={styles.grid}>
+        <Kpi
+          label="Infos entreprise"
+          value={String(memoiresEntreprise.length)}
+        />
+
+        <Kpi
+          label="Objectifs"
+          value={String(objectifs.length)}
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Tableau de bord
+        </Text>
+
+        <Text style={styles.text}>
+          Rose peut suivre :
+        </Text>
+
+        <Text style={styles.text}>
+          • Les chantiers
+        </Text>
+
+        <Text style={styles.text}>
+          • Les clients
+        </Text>
+
+        <Text style={styles.text}>
+          • Les objectifs financiers
+        </Text>
+
+        <Text style={styles.text}>
+          • Les rendez-vous
+        </Text>
+
+        <Text style={styles.text}>
+          • Les priorités quotidiennes
+        </Text>
+      </View>
+
+      {memoiresEntreprise.map((memoire: Memoire) => (
+        <View
+          key={memoire.id}
+          style={styles.card}
+        >
+          <Text style={styles.cardTitle}>
+            {memoire.categorie}
+          </Text>
+
+          <Text style={styles.text}>
+            {memoire.texte}
+          </Text>
+
+          <Text style={styles.dateText}>
+            {memoire.date}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ApprentissageScreen({
+  analyseCore,
+  resumeRose,
+  prioritesRose,
+  conseilsRose,
+}: any) {
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        Apprentissage
+      </Text>
+
+      <View style={styles.grid}>
+        <Kpi
+          label="Mémoire"
+          value={`${analyseCore.scoreMemoire}%`}
+        />
+
+        <Kpi
+          label="Cerveau"
+          value={`${analyseCore.scoreCerveau}%`}
+        />
+
+        <Kpi
+          label="Autonomie"
+          value={`${analyseCore.scoreAutonomie}%`}
+        />
+
+        <Kpi
+          label="Agenda"
+          value={String(analyseCore.agendaEnAttente)}
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Résumé
+        </Text>
+
+        <Text style={styles.text}>
+          {resumeRose}
+        </Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Priorités
+        </Text>
+
+        {prioritesRose.map(
+          (priorite: string, index: number) => (
+            <Text
+              key={index}
+              style={styles.text}
+            >
+              • {priorite}
+            </Text>
+          )
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Conseils
+        </Text>
+
+        {conseilsRose.map(
+          (conseil: string, index: number) => (
+            <Text
+              key={index}
+              style={styles.text}
+            >
+              • {conseil}
+            </Text>
+          )
+        )}
+      </View>
+    </View>
+  );
+}
 function CerveauScreen({
   analyseCore,
   profilDavid,
