@@ -4,7 +4,6 @@ import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
 import WebScreen from "./src/screens/WebScreen";
 import DecisionScreen from "./src/screens/DecisionScreen";
-import AgendaScreen from "./src/screens/AgendaScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -48,6 +47,8 @@ import {
 import {
   RoseCalendarEvent,
   suggestCalendarEventsFromMemory,
+  updateCalendarEventStatus,
+  deleteCalendarEvent,
 } from "./src/agents/calendarEngine";
 
 type Tab =
@@ -1391,6 +1392,172 @@ function Kpi({ label, value }: any) {
     <View style={styles.kpi}>
       <Text style={styles.kpiValue}>{value}</Text>
       <Text style={styles.kpiLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function AgendaScreen({
+  calendarEvents,
+  setCalendarEvents,
+  regenererAgendaRose,
+}: any) {
+  const planifier = (id: string) => {
+    setCalendarEvents(
+      updateCalendarEventStatus(
+        calendarEvents,
+        id,
+        "scheduled"
+      )
+    );
+  };
+
+  const terminer = (id: string) => {
+    setCalendarEvents(
+      updateCalendarEventStatus(
+        calendarEvents,
+        id,
+        "done"
+      )
+    );
+  };
+
+  const annuler = (id: string) => {
+    setCalendarEvents(
+      updateCalendarEventStatus(
+        calendarEvents,
+        id,
+        "cancelled"
+      )
+    );
+  };
+
+  const supprimer = (id: string) => {
+    setCalendarEvents(
+      deleteCalendarEvent(
+        calendarEvents,
+        id
+      )
+    );
+  };
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        Agenda de Rose
+      </Text>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Calendar Engine V7
+        </Text>
+
+        <Text style={styles.text}>
+          Rose prépare des événements à partir de sa mémoire.
+          Ces événements restent dans l’application tant qu’ils ne sont
+          pas connectés à Google Calendar.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={regenererAgendaRose}
+        >
+          <Text style={styles.mainButtonText}>
+            Régénérer les événements
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {calendarEvents.length === 0 && (
+        <View style={styles.card}>
+          <Text style={styles.text}>
+            Aucun événement Agenda préparé.
+          </Text>
+        </View>
+      )}
+
+      {calendarEvents.map(
+        (event: RoseCalendarEvent) => (
+          <View
+            key={event.id}
+            style={styles.card}
+          >
+            <Text style={styles.cardTitle}>
+              {event.title}
+            </Text>
+
+            <Text style={styles.text}>
+              Catégorie : {event.category}
+            </Text>
+
+            <Text style={styles.text}>
+              Date suggérée : {event.suggestedDate}
+            </Text>
+
+            <Text style={styles.text}>
+              Statut : {event.status}
+            </Text>
+
+            <Text style={styles.label}>
+              Description
+            </Text>
+
+            <Text style={styles.text}>
+              {event.description}
+            </Text>
+
+            <Text style={styles.dateText}>
+              Créé le{" "}
+              {new Date(event.createdAt).toLocaleDateString()}
+            </Text>
+
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.smallButton}
+                onPress={() =>
+                  planifier(event.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Planifier
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.smallButton}
+                onPress={() =>
+                  terminer(event.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Terminé
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.smallButton}
+                onPress={() =>
+                  annuler(event.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Annuler
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() =>
+                  supprimer(event.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Supprimer
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )
+      )}
     </View>
   );
 }
