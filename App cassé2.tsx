@@ -2,8 +2,6 @@ import RoseScreen from "./src/screens/RoseScreen";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
-import WebScreen from "./src/screens/WebScreen";
-import DecisionScreen from "./src/screens/DecisionScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -37,11 +35,15 @@ import {
 import {
   WebSearchRequest,
   suggestWebQueriesFromMemory,
+  updateWebRequestStatus,
+  deleteWebRequest,
 } from "./src/agents/webEngine";
 
 import {
   RoseDecision,
   suggestDecisionsFromMemory,
+  updateDecisionStatus,
+  deleteDecision,
 } from "./src/agents/decisionEngine";
 
 import {
@@ -1396,6 +1398,287 @@ function Kpi({ label, value }: any) {
   );
 }
 
+function WebScreen({
+  webRequests,
+  setWebRequests,
+  regenererRecherchesWeb,
+}: any) {
+  const valider = (id: string) => {
+    setWebRequests(
+      updateWebRequestStatus(
+        webRequests,
+        id,
+        "done"
+      )
+    );
+  };
+
+  const annuler = (id: string) => {
+    setWebRequests(
+      updateWebRequestStatus(
+        webRequests,
+        id,
+        "cancelled"
+      )
+    );
+  };
+
+  const supprimer = (id: string) => {
+    setWebRequests(
+      deleteWebRequest(
+        webRequests,
+        id
+      )
+    );
+  };
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        Web Engine
+      </Text>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Recherches préparées
+        </Text>
+
+        <Text style={styles.text}>
+          Rose prépare des recherches à partir de sa mémoire.
+          Elle attend toujours ta validation avant toute action externe.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={regenererRecherchesWeb}
+        >
+          <Text style={styles.mainButtonText}>
+            Régénérer les recherches Web
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {webRequests.length === 0 && (
+        <View style={styles.card}>
+          <Text style={styles.text}>
+            Aucune recherche Web préparée.
+          </Text>
+        </View>
+      )}
+
+      {webRequests.map(
+        (request: WebSearchRequest) => (
+          <View
+            key={request.id}
+            style={styles.card}
+          >
+            <Text style={styles.cardTitle}>
+              {request.query}
+            </Text>
+
+            <Text style={styles.text}>
+              Catégorie : {request.category}
+            </Text>
+
+            <Text style={styles.text}>
+              Statut : {request.status}
+            </Text>
+
+            <Text style={styles.label}>
+              Raison
+            </Text>
+
+            <Text style={styles.text}>
+              {request.reason}
+            </Text>
+
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.smallButton}
+                onPress={() =>
+                  valider(request.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Valider
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.smallButton}
+                onPress={() =>
+                  annuler(request.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Annuler
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() =>
+                  supprimer(request.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Supprimer
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )
+      )}
+    </View>
+  );
+}
+
+function DecisionScreen({
+  roseDecisions,
+  setRoseDecisions,
+  regenererDecisionsRose,
+}: any) {
+  const accepter = (id: string) => {
+    setRoseDecisions(
+      updateDecisionStatus(
+        roseDecisions,
+        id,
+        "accepted"
+      )
+    );
+  };
+
+  const refuser = (id: string) => {
+    setRoseDecisions(
+      updateDecisionStatus(
+        roseDecisions,
+        id,
+        "rejected"
+      )
+    );
+  };
+
+  const supprimer = (id: string) => {
+    setRoseDecisions(
+      deleteDecision(
+        roseDecisions,
+        id
+      )
+    );
+  };
+
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        Décisions de Rose
+      </Text>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Decision Engine V7
+        </Text>
+
+        <Text style={styles.text}>
+          Rose explique pourquoi elle recommande une action.
+          Tu peux ensuite accepter ou refuser sa proposition.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={regenererDecisionsRose}
+        >
+          <Text style={styles.mainButtonText}>
+            Régénérer les décisions
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {roseDecisions.length === 0 && (
+        <View style={styles.card}>
+          <Text style={styles.text}>
+            Aucune décision proposée.
+          </Text>
+        </View>
+      )}
+
+      {roseDecisions.map(
+        (decision: RoseDecision) => (
+          <View
+            key={decision.id}
+            style={styles.card}
+          >
+            <Text style={styles.cardTitle}>
+              {decision.title}
+            </Text>
+
+            <Text style={styles.text}>
+              Type : {decision.type}
+            </Text>
+
+            <Text style={styles.text}>
+              Priorité : {decision.priority}
+            </Text>
+
+            <Text style={styles.text}>
+              Statut : {decision.status}
+            </Text>
+
+            <Text style={styles.label}>
+              Explication
+            </Text>
+
+            <Text style={styles.text}>
+              {decision.explanation}
+            </Text>
+
+            <Text style={styles.label}>
+              Recommandation
+            </Text>
+
+            <Text style={styles.text}>
+              {decision.recommendation}
+            </Text>
+
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={styles.smallButton}
+                onPress={() =>
+                  accepter(decision.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Accepter
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.smallButton}
+                onPress={() =>
+                  refuser(decision.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Refuser
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() =>
+                  supprimer(decision.id)
+                }
+              >
+                <Text style={styles.smallButtonText}>
+                  Supprimer
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )
+      )}
+    </View>
+  );
+}
 function AgendaScreen({
   calendarEvents,
   setCalendarEvents,
