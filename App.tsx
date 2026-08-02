@@ -10,6 +10,7 @@ import ApprentissageScreen from "./src/screens/ApprentissageScreen";
 import CerveauScreen from "./src/screens/CerveauScreen";
 import CoachScreen from "./src/screens/CoachScreen";
 import AutonomieScreen from "./src/screens/AutonomieScreen";
+import TaskScreen from "./src/screens/TaskScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -29,8 +30,6 @@ import { supabase } from "./lib/supabase";
 import {
   RoseTask,
   suggestTasksFromMemory,
-  updateTaskStatus,
-  deleteTask,
 } from "./src/agents/taskEngine";
 
 import {
@@ -1400,168 +1399,6 @@ function Kpi({ label, value }: any) {
   );
 }
 
-function TaskScreen({
-  roseTasks,
-  setRoseTasks,
-  regenererTachesRose,
-}: any) {
-  const demarrer = (id: string) => {
-    setRoseTasks(
-      updateTaskStatus(
-        roseTasks,
-        id,
-        "in_progress"
-      )
-    );
-  };
-
-  const terminer = (id: string) => {
-    setRoseTasks(
-      updateTaskStatus(
-        roseTasks,
-        id,
-        "done"
-      )
-    );
-  };
-
-  const mettreEnAttente = (id: string) => {
-    setRoseTasks(
-      updateTaskStatus(
-        roseTasks,
-        id,
-        "pending"
-      )
-    );
-  };
-
-  const supprimer = (id: string) => {
-    setRoseTasks(
-      deleteTask(
-        roseTasks,
-        id
-      )
-    );
-  };
-
-  return (
-    <View>
-      <Text style={styles.sectionTitle}>
-        Tâches de Rose
-      </Text>
-
-      <View style={styles.card}>
-        <Text style={styles.label}>
-          Task Engine V7
-        </Text>
-
-        <Text style={styles.text}>
-          Rose transforme sa mémoire, ses objectifs et ses décisions
-          en tâches concrètes et organisées.
-        </Text>
-
-        <TouchableOpacity
-          style={styles.mainButton}
-          onPress={regenererTachesRose}
-        >
-          <Text style={styles.mainButtonText}>
-            Régénérer les tâches
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {roseTasks.length === 0 && (
-        <View style={styles.card}>
-          <Text style={styles.text}>
-            Aucune tâche générée pour le moment.
-          </Text>
-        </View>
-      )}
-
-      {roseTasks.map((task: RoseTask) => (
-        <View
-          key={task.id}
-          style={styles.card}
-        >
-          <Text style={styles.cardTitle}>
-            {task.title}
-          </Text>
-
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              Priorité : {task.priority}
-            </Text>
-          </View>
-
-          <Text style={styles.text}>
-            Statut : {task.status}
-          </Text>
-
-          <Text style={styles.label}>
-            Description
-          </Text>
-
-          <Text style={styles.text}>
-            {task.description}
-          </Text>
-
-          {task.createdAt && (
-            <Text style={styles.dateText}>
-              Créée le{" "}
-              {new Date(task.createdAt).toLocaleDateString()}
-            </Text>
-          )}
-
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={styles.smallButton}
-              onPress={() =>
-                demarrer(task.id)
-              }
-            >
-              <Text style={styles.smallButtonText}>
-                Démarrer
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.smallButton}
-              onPress={() =>
-                terminer(task.id)
-              }
-            >
-              <Text style={styles.smallButtonText}>
-                Terminer
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.smallButton}
-              onPress={() =>
-                mettreEnAttente(task.id)
-              }
-            >
-              <Text style={styles.smallButtonText}>
-                En attente
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() =>
-                supprimer(task.id)
-              }
-            >
-              <Text style={styles.smallButtonText}>
-                Supprimer
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
