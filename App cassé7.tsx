@@ -8,7 +8,6 @@ import AgendaScreen from "./src/screens/AgendaScreen";
 import EntrepriseScreen from "./src/screens/EntrepriseScreen";
 import ApprentissageScreen from "./src/screens/ApprentissageScreen";
 import CerveauScreen from "./src/screens/CerveauScreen";
-import CoachScreen from "./src/screens/CoachScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -1399,7 +1398,143 @@ function Kpi({ label, value }: any) {
   );
 }
 
-function AutonomieScreen({
+function CoachScreen({
+  analyseCore,
+  habitudesRose,
+  coachEntreprise,
+  actionsRecommandees,
+  analyserHabitudesRose,
+  genererCoachEntreprise,
+  genererActionsRecommandees,
+}: any) {
+  return (
+    <View>
+      <Text style={styles.sectionTitle}>
+        Coach personnel
+      </Text>
+
+      <View style={styles.grid}>
+        <Kpi
+          label="Score Coach"
+          value={`${analyseCore.scoreCoach}%`}
+        />
+
+        <Kpi
+          label="Progression"
+          value={`${analyseCore.progressionMoyenne}%`}
+        />
+
+        <Kpi
+          label="Objectifs actifs"
+          value={String(analyseCore.goalsActifs)}
+        />
+
+        <Kpi
+          label="Tâches actives"
+          value={String(analyseCore.tasksActives)}
+        />
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Analyse des habitudes
+        </Text>
+
+        {habitudesRose.length === 0 && (
+          <Text style={styles.text}>
+            Rose n’a pas encore analysé tes habitudes.
+          </Text>
+        )}
+
+        {habitudesRose.map(
+          (habitude: string, index: number) => (
+            <Text
+              key={`${habitude}-${index}`}
+              style={styles.text}
+            >
+              • {habitude}
+            </Text>
+          )
+        )}
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={analyserHabitudesRose}
+        >
+          <Text style={styles.mainButtonText}>
+            Analyser mes habitudes
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Coach entreprise
+        </Text>
+
+        <Text style={styles.text}>
+          {coachEntreprise ||
+            "Aucune analyse de l’entreprise disponible."}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={genererCoachEntreprise}
+        >
+          <Text style={styles.mainButtonText}>
+            Générer le coaching entreprise
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Actions recommandées
+        </Text>
+
+        {actionsRecommandees.length === 0 && (
+          <Text style={styles.text}>
+            Aucune action recommandée pour le moment.
+          </Text>
+        )}
+
+        {actionsRecommandees.map(
+          (action: string, index: number) => (
+            <View
+              key={`${action}-${index}`}
+              style={styles.journalItem}
+            >
+              <Text style={styles.text}>
+                {index + 1}. {action}
+              </Text>
+            </View>
+          )
+        )}
+
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={genererActionsRecommandees}
+        >
+          <Text style={styles.mainButtonText}>
+            Générer les actions prioritaires
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>
+          Conseil du coach
+        </Text>
+
+        <Text style={styles.text}>
+          Avance étape par étape, termine les actions les plus
+          importantes et garde ton objectif principal visible.
+        </Text>
+      </View>
+    </View>
+  );
+}
+ function AutonomieScreen({
   analyseCore,
   autonomieRose,
   agentWebRose,
