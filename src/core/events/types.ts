@@ -12,12 +12,16 @@ export type RoseEventName =
   | "goal.updated"
   | "goal.completed"
   | "agents.selected"
+  | "agent.contribution.ready"
+  | "agents.consensus.ready"
   | "explanation.generated"
   | "personality.applied"
   | "brain.response.ready"
   | "core.error";
 
-export type RoseEvent<TPayload = unknown> = {
+export type RoseEvent<
+  TPayload = unknown
+> = {
   id: string;
   name: RoseEventName;
   payload: TPayload;
@@ -25,7 +29,9 @@ export type RoseEvent<TPayload = unknown> = {
   createdAt: string;
 };
 
-export type RoseEventHandler<TPayload = unknown> = (
+export type RoseEventHandler<
+  TPayload = unknown
+> = (
   event: RoseEvent<TPayload>
 ) => void | Promise<void>;
 

@@ -1,4 +1,6 @@
-import { EventBus } from "./EventBus";
+import {
+  EventBus,
+} from "./EventBus";
 import {
   RoseEvent,
   RoseEventName,
@@ -13,17 +15,22 @@ export type CoreLogEntry = {
 };
 
 export class CoreEventLogger {
-  private readonly logs: CoreLogEntry[] = [];
-  private subscriptions: RoseEventSubscription[] = [];
+  private readonly logs:
+    CoreLogEntry[] = [];
+
+  private subscriptions:
+    RoseEventSubscription[] = [];
 
   constructor(
-    private readonly eventBus: EventBus
+    private readonly eventBus:
+      EventBus
   ) {}
 
   start(): void {
     this.stop();
 
-    const eventNames: RoseEventName[] = [
+    const eventNames:
+      RoseEventName[] = [
       "core.initialized",
       "brain.request.received",
       "context.analyzed",
@@ -37,6 +44,8 @@ export class CoreEventLogger {
       "goal.updated",
       "goal.completed",
       "agents.selected",
+      "agent.contribution.ready",
+      "agents.consensus.ready",
       "explanation.generated",
       "personality.applied",
       "brain.response.ready",
@@ -74,7 +83,8 @@ export class CoreEventLogger {
     this.subscriptions = [];
   }
 
-  getLogs(): CoreLogEntry[] {
+  getLogs():
+    CoreLogEntry[] {
     return [...this.logs];
   }
 
@@ -86,6 +96,12 @@ export class CoreEventLogger {
     event: RoseEvent
   ): string {
     switch (event.name) {
+      case "agents.selected":
+        return "Les agents spécialisés ont été sélectionnés.";
+      case "agent.contribution.ready":
+        return "Un agent a produit une contribution.";
+      case "agents.consensus.ready":
+        return "Le consensus multi-agents est prêt.";
       case "goal.created":
         return "Un nouvel objectif a été créé.";
       case "goal.updated":
@@ -110,8 +126,6 @@ export class CoreEventLogger {
         return "Le graphe de connaissances a été enrichi.";
       case "reasoning.completed":
         return "Le raisonnement est terminé.";
-      case "agents.selected":
-        return "Les agents spécialisés ont été sélectionnés.";
       case "explanation.generated":
         return "Une explication a été générée.";
       case "personality.applied":
