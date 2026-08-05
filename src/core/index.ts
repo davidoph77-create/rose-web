@@ -2,6 +2,7 @@ export * from "./types/core";
 
 export * from "./events";
 export * from "./cognitive";
+export * from "./knowledge";
 
 export * from "./brain/BrainEngine";
 export * from "./context/ContextEngine";
