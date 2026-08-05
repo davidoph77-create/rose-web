@@ -30,6 +30,7 @@ export class CoreEventLogger {
       "knowledge.graph.updated",
       "reasoning.completed",
       "plan.created",
+      "plan.step.updated",
       "agents.selected",
       "explanation.generated",
       "personality.applied",
@@ -39,7 +40,12 @@ export class CoreEventLogger {
 
     this.subscriptions = eventNames.map((eventName) =>
       this.eventBus.subscribe(eventName, (event) => {
-        this.logs.push(this.toLogEntry(event));
+        this.logs.push({
+          eventName: event.name,
+          source: event.source,
+          message: this.createMessage(event),
+          createdAt: event.createdAt,
+        });
       })
     );
   }
@@ -59,17 +65,12 @@ export class CoreEventLogger {
     this.logs.length = 0;
   }
 
-  private toLogEntry(event: RoseEvent): CoreLogEntry {
-    return {
-      eventName: event.name,
-      source: event.source,
-      message: this.createMessage(event),
-      createdAt: event.createdAt,
-    };
-  }
-
   private createMessage(event: RoseEvent): string {
     switch (event.name) {
+      case "plan.created":
+        return "Un plan structuré a été préparé.";
+      case "plan.step.updated":
+        return "Une étape du plan a changé d’état.";
       case "core.initialized":
         return "Rose Core est initialisé.";
       case "brain.request.received":
@@ -84,8 +85,6 @@ export class CoreEventLogger {
         return "Le graphe de connaissances a été enrichi.";
       case "reasoning.completed":
         return "Le raisonnement est terminé.";
-      case "plan.created":
-        return "Un plan a été préparé.";
       case "agents.selected":
         return "Les agents spécialisés ont été sélectionnés.";
       case "explanation.generated":

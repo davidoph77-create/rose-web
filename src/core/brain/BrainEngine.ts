@@ -15,7 +15,10 @@ import {
   MemorySummary,
 } from "../memory/MemoryEngine";
 import { PersonalityEngine } from "../personality/PersonalityEngine";
-import { PlannerEngine } from "../planner/PlannerEngine";
+import {
+  Plan,
+  PlannerEngine,
+} from "../planner";
 import { ReasoningEngine } from "../reasoning/ReasoningEngine";
 import {
   CoreInput,
@@ -30,7 +33,7 @@ export class BrainEngine
 {
   readonly id = "brain-engine";
   readonly name = "Brain Engine";
-  readonly version = "1.2.0";
+  readonly version = "1.3.0";
   readonly maturity = 2 as const;
 
   private status: CoreStatus = "idle";
@@ -68,6 +71,10 @@ export class BrainEngine
     return this.knowledgeGraphEngine;
   }
 
+  getPlanner(): PlannerEngine {
+    return this.plannerEngine;
+  }
+
   async initialize(): Promise<void> {
     this.status = "initializing";
 
@@ -90,17 +97,6 @@ export class BrainEngine
       {
         moduleId: this.id,
         version: this.version,
-        modules: [
-          this.contextEngine.id,
-          this.memoryEngine.id,
-          this.cognitiveMemoryEngine.id,
-          this.knowledgeGraphEngine.id,
-          this.reasoningEngine.id,
-          this.plannerEngine.id,
-          this.explainEngine.id,
-          this.personalityEngine.id,
-          this.agentManager.id,
-        ],
       },
       this.id
     );
@@ -110,99 +106,17 @@ export class BrainEngine
     this.status = "running";
     const trace: CoreTraceStep[] = [];
 
-    await this.eventBus.publish(
-      "brain.request.received",
-      {
-        message: input.message,
-        userId: input.userId,
-      },
-      this.id
-    );
-
     try {
-      const context =
-        await this.contextEngine.execute(input);
-
-      trace.push(
-        this.makeTrace(
-          this.contextEngine.id,
-          "Contexte et intention analysés"
-        )
-      );
-
-      await this.eventBus.publish(
-        "context.analyzed",
-        {
-          intent: context.intent,
-          domains: context.domains,
-          confidence: context.confidence,
-        },
-        this.contextEngine.id
-      );
-
+      const context = await this.contextEngine.execute(input);
       const historicalMemory =
         await this.memoryEngine.execute(context);
-
-      trace.push(
-        this.makeTrace(
-          this.memoryEngine.id,
-          `${historicalMemory.relevantMemories.length} mémoire(s) historique(s)`
-        )
-      );
-
-      await this.eventBus.publish(
-        "memory.searched",
-        historicalMemory,
-        this.memoryEngine.id
-      );
-
       const cognitiveResults =
         this.cognitiveMemoryEngine.search({
           text: input.message,
           limit: 5,
         });
-
-      trace.push(
-        this.makeTrace(
-          this.cognitiveMemoryEngine.id,
-          `${cognitiveResults.length} souvenir(s) cognitif(s)`
-        )
-      );
-
-      await this.eventBus.publish(
-        "cognitive.memory.searched",
-        {
-          count: cognitiveResults.length,
-          memoryIds: cognitiveResults.map(
-            (result) => result.memory.id
-          ),
-        },
-        this.cognitiveMemoryEngine.id
-      );
-
       const knowledgeExtraction =
         this.knowledgeGraphEngine.extract(input.message);
-
-      trace.push(
-        this.makeTrace(
-          this.knowledgeGraphEngine.id,
-          `${knowledgeExtraction.entities.length} entité(s) et ` +
-            `${knowledgeExtraction.relations.length} relation(s) détectée(s)`
-        )
-      );
-
-      await this.eventBus.publish(
-        "knowledge.graph.updated",
-        {
-          entityIds: knowledgeExtraction.entities.map(
-            (entity) => entity.id
-          ),
-          relationIds: knowledgeExtraction.relations.map(
-            (relation) => relation.id
-          ),
-        },
-        this.knowledgeGraphEngine.id
-      );
 
       const combinedMemory = this.combineMemories(
         historicalMemory,
@@ -215,31 +129,13 @@ export class BrainEngine
           memory: combinedMemory,
         });
 
-      trace.push(
-        this.makeTrace(
-          this.reasoningEngine.id,
-          reasoning.summary
-        )
-      );
-
-      await this.eventBus.publish(
-        "reasoning.completed",
-        reasoning,
-        this.reasoningEngine.id
-      );
-
-      const plan =
+      const plannerResult =
         await this.plannerEngine.execute({
-          recommendations:
-            reasoning.recommendations,
+          objective: input.message,
+          recommendations: reasoning.recommendations,
         });
 
-      trace.push(
-        this.makeTrace(
-          this.plannerEngine.id,
-          `${plan.steps.length} étape(s) préparée(s)`
-        )
-      );
+      const plan = plannerResult.plan;
 
       await this.eventBus.publish(
         "plan.created",
@@ -250,61 +146,20 @@ export class BrainEngine
       const agents =
         await this.agentManager.execute(context);
 
-      trace.push(
-        this.makeTrace(
-          this.agentManager.id,
-          agents.agentIds.length > 0
-            ? `Agents sélectionnés : ${agents.agentIds.join(", ")}`
-            : "Aucun agent spécialisé nécessaire"
-        )
-      );
-
-      await this.eventBus.publish(
-        "agents.selected",
-        agents,
-        this.agentManager.id
-      );
-
       const explanation =
         await this.explainEngine.execute({
           context,
-          recommendations:
-            reasoning.recommendations,
+          recommendations: reasoning.recommendations,
           memoryCount:
             combinedMemory.relevantMemories.length,
         });
 
-      trace.push(
-        this.makeTrace(
-          this.explainEngine.id,
-          "Explication générée"
-        )
-      );
-
-      await this.eventBus.publish(
-        "explanation.generated",
-        explanation,
-        this.explainEngine.id
-      );
-
-      const knowledgeSummary =
-        this.describeKnowledge(
-          knowledgeExtraction.entities
-        );
-
       const baseResponse = [
         reasoning.summary,
-        combinedMemory.relevantMemories.length > 0
-          ? `Mémoire utilisée : ${combinedMemory.relevantMemories
-              .slice(0, 3)
-              .join(" | ")}.`
-          : "",
-        knowledgeSummary,
-        plan.steps.length > 0
-          ? `Plan préparé : ${plan.steps
-              .map((step) => step.title)
-              .join(" → ")}.`
-          : "",
+        this.describePlan(plan),
+        this.describeKnowledge(
+          knowledgeExtraction.entities
+        ),
         explanation.explanation,
         "Rose réfléchit. Rose explique. David décide.",
       ]
@@ -322,23 +177,18 @@ export class BrainEngine
 
       trace.push(
         this.makeTrace(
-          this.personalityEngine.id,
-          "Personnalité de Rose appliquée"
+          this.plannerEngine.id,
+          `${plan.steps.length} étape(s), ` +
+            `${plan.totalEstimatedMinutes} minute(s), ` +
+            `risque ${plan.riskLevel}`
         )
-      );
-
-      await this.eventBus.publish(
-        "personality.applied",
-        { response },
-        this.personalityEngine.id
       );
 
       const output: CoreOutput = {
         success: true,
         response,
         context,
-        recommendations:
-          reasoning.recommendations,
+        recommendations: reasoning.recommendations,
         trace,
         missingInformation:
           reasoning.missingInformation,
@@ -351,50 +201,47 @@ export class BrainEngine
       );
 
       return output;
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Erreur inconnue";
-
-      trace.push({
-        id: `error-${Date.now()}`,
-        moduleId: this.id,
-        label: "Erreur pendant l’orchestration",
-        status: "error",
-        detail: message,
-        createdAt: new Date().toISOString(),
-      });
-
-      await this.eventBus.publish(
-        "core.error",
-        { message },
-        this.id
-      );
-
-      throw error;
     } finally {
       this.status = "ready";
     }
+  }
+
+  private describePlan(plan: Plan): string {
+    if (plan.steps.length === 0) {
+      return "";
+    }
+
+    const steps = plan.steps
+      .map(
+        (step) =>
+          `${step.order}. ${step.title} ` +
+          `(${step.priority}, ${step.estimatedMinutes} min)`
+      )
+      .join(" → ");
+
+    return (
+      `Plan : ${steps}. ` +
+      `Durée estimée : ${plan.totalEstimatedMinutes} min. ` +
+      `Risque : ${plan.riskLevel}. ` +
+      `Validation requise : ${
+        plan.requiresValidation ? "oui" : "non"
+      }.`
+    );
   }
 
   private combineMemories(
     historical: MemorySummary,
     cognitive: RankedMemory[]
   ): MemorySummary {
-    const cognitiveContents = cognitive.map(
-      (result) => result.memory.content
-    );
-
-    const relevantMemories = Array.from(
-      new Set([
-        ...historical.relevantMemories,
-        ...cognitiveContents,
-      ])
-    ).slice(0, 8);
-
     return {
-      relevantMemories,
+      relevantMemories: Array.from(
+        new Set([
+          ...historical.relevantMemories,
+          ...cognitive.map(
+            (result) => result.memory.content
+          ),
+        ])
+      ).slice(0, 8),
       sourceCount:
         historical.sourceCount +
         this.cognitiveMemoryEngine.getAll().length,

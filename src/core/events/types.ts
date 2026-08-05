@@ -7,6 +7,7 @@ export type RoseEventName =
   | "knowledge.graph.updated"
   | "reasoning.completed"
   | "plan.created"
+  | "plan.step.updated"
   | "agents.selected"
   | "explanation.generated"
   | "personality.applied"
