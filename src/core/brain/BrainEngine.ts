@@ -1,5 +1,6 @@
 import { AgentManager } from "../agents/AgentManager";
 import { ContextEngine } from "../context/ContextEngine";
+import { EventBus } from "../events/EventBus";
 import { ExplainEngine } from "../explain/ExplainEngine";
 import { MemoryEngine } from "../memory/MemoryEngine";
 import { PersonalityEngine } from "../personality/PersonalityEngine";
@@ -18,7 +19,7 @@ export class BrainEngine
 {
   readonly id = "brain-engine";
   readonly name = "Brain Engine";
-  readonly version = "1.0.0";
+  readonly version = "1.1.0";
   readonly maturity = 1 as const;
 
   private status: CoreStatus = "idle";
@@ -32,8 +33,16 @@ export class BrainEngine
   private readonly explainEngine = new ExplainEngine();
   private readonly agentManager = new AgentManager();
 
+  constructor(
+    private readonly eventBus: EventBus = new EventBus()
+  ) {}
+
   getStatus(): CoreStatus {
     return this.status;
+  }
+
+  getEventBus(): EventBus {
+    return this.eventBus;
   }
 
   async initialize(): Promise<void> {
@@ -50,11 +59,29 @@ export class BrainEngine
     ]);
 
     this.status = "ready";
+
+    await this.eventBus.publish(
+      "core.initialized",
+      {
+        moduleId: this.id,
+        version: this.version,
+      },
+      this.id
+    );
   }
 
   async execute(input: CoreInput): Promise<CoreOutput> {
     this.status = "running";
     const trace: CoreTraceStep[] = [];
+
+    await this.eventBus.publish(
+      "brain.request.received",
+      {
+        message: input.message,
+        userId: input.userId,
+      },
+      this.id
+    );
 
     try {
       const context =
@@ -67,6 +94,16 @@ export class BrainEngine
         )
       );
 
+      await this.eventBus.publish(
+        "context.analyzed",
+        {
+          intent: context.intent,
+          domains: context.domains,
+          confidence: context.confidence,
+        },
+        this.contextEngine.id
+      );
+
       const memory =
         await this.memoryEngine.execute(context);
 
@@ -75,6 +112,12 @@ export class BrainEngine
           this.memoryEngine.id,
           `${memory.relevantMemories.length} mémoire(s) pertinente(s)`
         )
+      );
+
+      await this.eventBus.publish(
+        "memory.searched",
+        memory,
+        this.memoryEngine.id
       );
 
       const reasoning =
@@ -90,6 +133,12 @@ export class BrainEngine
         )
       );
 
+      await this.eventBus.publish(
+        "reasoning.completed",
+        reasoning,
+        this.reasoningEngine.id
+      );
+
       const plan =
         await this.plannerEngine.execute({
           recommendations:
@@ -103,6 +152,12 @@ export class BrainEngine
         )
       );
 
+      await this.eventBus.publish(
+        "plan.created",
+        plan,
+        this.plannerEngine.id
+      );
+
       const agents =
         await this.agentManager.execute(context);
 
@@ -113,6 +168,12 @@ export class BrainEngine
             ? `Agents sélectionnés : ${agents.agentIds.join(", ")}`
             : "Aucun agent spécialisé nécessaire"
         )
+      );
+
+      await this.eventBus.publish(
+        "agents.selected",
+        agents,
+        this.agentManager.id
       );
 
       const explanation =
@@ -129,6 +190,12 @@ export class BrainEngine
           this.explainEngine.id,
           "Explication générée"
         )
+      );
+
+      await this.eventBus.publish(
+        "explanation.generated",
+        explanation,
+        this.explainEngine.id
       );
 
       const baseResponse = [
@@ -160,7 +227,13 @@ export class BrainEngine
         )
       );
 
-      return {
+      await this.eventBus.publish(
+        "personality.applied",
+        { response },
+        this.personalityEngine.id
+      );
+
+      const output: CoreOutput = {
         success: true,
         response,
         context,
@@ -170,6 +243,36 @@ export class BrainEngine
         missingInformation:
           reasoning.missingInformation,
       };
+
+      await this.eventBus.publish(
+        "brain.response.ready",
+        output,
+        this.id
+      );
+
+      return output;
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Erreur inconnue";
+
+      trace.push({
+        id: `error-${Date.now()}`,
+        moduleId: this.id,
+        label: "Erreur pendant l’orchestration",
+        status: "error",
+        detail: message,
+        createdAt: new Date().toISOString(),
+      });
+
+      await this.eventBus.publish(
+        "core.error",
+        { message },
+        this.id
+      );
+
+      throw error;
     } finally {
       this.status = "ready";
     }

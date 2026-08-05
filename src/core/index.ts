@@ -1,4 +1,7 @@
 export * from "./types/core";
+
+export * from "./events";
+
 export * from "./brain/BrainEngine";
 export * from "./context/ContextEngine";
 export * from "./memory/MemoryEngine";
