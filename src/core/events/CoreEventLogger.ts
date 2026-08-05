@@ -26,6 +26,8 @@ export class CoreEventLogger {
       "brain.request.received",
       "context.analyzed",
       "memory.searched",
+      "cognitive.memory.searched",
+      "knowledge.graph.updated",
       "reasoning.completed",
       "plan.created",
       "agents.selected",
@@ -75,7 +77,11 @@ export class CoreEventLogger {
       case "context.analyzed":
         return "Le contexte et l’intention ont été analysés.";
       case "memory.searched":
-        return "La mémoire a été consultée.";
+        return "La mémoire historique a été consultée.";
+      case "cognitive.memory.searched":
+        return "La mémoire cognitive a été consultée.";
+      case "knowledge.graph.updated":
+        return "Le graphe de connaissances a été enrichi.";
       case "reasoning.completed":
         return "Le raisonnement est terminé.";
       case "plan.created":

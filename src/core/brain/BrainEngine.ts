@@ -1,8 +1,19 @@
 import { AgentManager } from "../agents/AgentManager";
+import {
+  CognitiveMemoryEngine,
+  RankedMemory,
+} from "../cognitive";
 import { ContextEngine } from "../context/ContextEngine";
 import { EventBus } from "../events/EventBus";
 import { ExplainEngine } from "../explain/ExplainEngine";
-import { MemoryEngine } from "../memory/MemoryEngine";
+import {
+  KnowledgeEntity,
+  KnowledgeGraphEngine,
+} from "../knowledge";
+import {
+  MemoryEngine,
+  MemorySummary,
+} from "../memory/MemoryEngine";
 import { PersonalityEngine } from "../personality/PersonalityEngine";
 import { PlannerEngine } from "../planner/PlannerEngine";
 import { ReasoningEngine } from "../reasoning/ReasoningEngine";
@@ -19,13 +30,17 @@ export class BrainEngine
 {
   readonly id = "brain-engine";
   readonly name = "Brain Engine";
-  readonly version = "1.1.0";
-  readonly maturity = 1 as const;
+  readonly version = "1.2.0";
+  readonly maturity = 2 as const;
 
   private status: CoreStatus = "idle";
 
   private readonly contextEngine = new ContextEngine();
   private readonly memoryEngine = new MemoryEngine();
+  private readonly cognitiveMemoryEngine =
+    new CognitiveMemoryEngine();
+  private readonly knowledgeGraphEngine =
+    new KnowledgeGraphEngine();
   private readonly reasoningEngine = new ReasoningEngine();
   private readonly plannerEngine = new PlannerEngine();
   private readonly personalityEngine =
@@ -45,12 +60,22 @@ export class BrainEngine
     return this.eventBus;
   }
 
+  getCognitiveMemory(): CognitiveMemoryEngine {
+    return this.cognitiveMemoryEngine;
+  }
+
+  getKnowledgeGraph(): KnowledgeGraphEngine {
+    return this.knowledgeGraphEngine;
+  }
+
   async initialize(): Promise<void> {
     this.status = "initializing";
 
     await Promise.all([
       this.contextEngine.initialize(),
       this.memoryEngine.initialize(),
+      this.cognitiveMemoryEngine.initialize(),
+      this.knowledgeGraphEngine.initialize(),
       this.reasoningEngine.initialize(),
       this.plannerEngine.initialize(),
       this.personalityEngine.initialize(),
@@ -65,6 +90,17 @@ export class BrainEngine
       {
         moduleId: this.id,
         version: this.version,
+        modules: [
+          this.contextEngine.id,
+          this.memoryEngine.id,
+          this.cognitiveMemoryEngine.id,
+          this.knowledgeGraphEngine.id,
+          this.reasoningEngine.id,
+          this.plannerEngine.id,
+          this.explainEngine.id,
+          this.personalityEngine.id,
+          this.agentManager.id,
+        ],
       },
       this.id
     );
@@ -104,26 +140,79 @@ export class BrainEngine
         this.contextEngine.id
       );
 
-      const memory =
+      const historicalMemory =
         await this.memoryEngine.execute(context);
 
       trace.push(
         this.makeTrace(
           this.memoryEngine.id,
-          `${memory.relevantMemories.length} mémoire(s) pertinente(s)`
+          `${historicalMemory.relevantMemories.length} mémoire(s) historique(s)`
         )
       );
 
       await this.eventBus.publish(
         "memory.searched",
-        memory,
+        historicalMemory,
         this.memoryEngine.id
+      );
+
+      const cognitiveResults =
+        this.cognitiveMemoryEngine.search({
+          text: input.message,
+          limit: 5,
+        });
+
+      trace.push(
+        this.makeTrace(
+          this.cognitiveMemoryEngine.id,
+          `${cognitiveResults.length} souvenir(s) cognitif(s)`
+        )
+      );
+
+      await this.eventBus.publish(
+        "cognitive.memory.searched",
+        {
+          count: cognitiveResults.length,
+          memoryIds: cognitiveResults.map(
+            (result) => result.memory.id
+          ),
+        },
+        this.cognitiveMemoryEngine.id
+      );
+
+      const knowledgeExtraction =
+        this.knowledgeGraphEngine.extract(input.message);
+
+      trace.push(
+        this.makeTrace(
+          this.knowledgeGraphEngine.id,
+          `${knowledgeExtraction.entities.length} entité(s) et ` +
+            `${knowledgeExtraction.relations.length} relation(s) détectée(s)`
+        )
+      );
+
+      await this.eventBus.publish(
+        "knowledge.graph.updated",
+        {
+          entityIds: knowledgeExtraction.entities.map(
+            (entity) => entity.id
+          ),
+          relationIds: knowledgeExtraction.relations.map(
+            (relation) => relation.id
+          ),
+        },
+        this.knowledgeGraphEngine.id
+      );
+
+      const combinedMemory = this.combineMemories(
+        historicalMemory,
+        cognitiveResults
       );
 
       const reasoning =
         await this.reasoningEngine.execute({
           context,
-          memory,
+          memory: combinedMemory,
         });
 
       trace.push(
@@ -182,7 +271,7 @@ export class BrainEngine
           recommendations:
             reasoning.recommendations,
           memoryCount:
-            memory.relevantMemories.length,
+            combinedMemory.relevantMemories.length,
         });
 
       trace.push(
@@ -198,8 +287,19 @@ export class BrainEngine
         this.explainEngine.id
       );
 
+      const knowledgeSummary =
+        this.describeKnowledge(
+          knowledgeExtraction.entities
+        );
+
       const baseResponse = [
         reasoning.summary,
+        combinedMemory.relevantMemories.length > 0
+          ? `Mémoire utilisée : ${combinedMemory.relevantMemories
+              .slice(0, 3)
+              .join(" | ")}.`
+          : "",
+        knowledgeSummary,
         plan.steps.length > 0
           ? `Plan préparé : ${plan.steps
               .map((step) => step.title)
@@ -276,6 +376,41 @@ export class BrainEngine
     } finally {
       this.status = "ready";
     }
+  }
+
+  private combineMemories(
+    historical: MemorySummary,
+    cognitive: RankedMemory[]
+  ): MemorySummary {
+    const cognitiveContents = cognitive.map(
+      (result) => result.memory.content
+    );
+
+    const relevantMemories = Array.from(
+      new Set([
+        ...historical.relevantMemories,
+        ...cognitiveContents,
+      ])
+    ).slice(0, 8);
+
+    return {
+      relevantMemories,
+      sourceCount:
+        historical.sourceCount +
+        this.cognitiveMemoryEngine.getAll().length,
+    };
+  }
+
+  private describeKnowledge(
+    entities: KnowledgeEntity[]
+  ): string {
+    if (entities.length === 0) {
+      return "";
+    }
+
+    return `Connaissances détectées : ${entities
+      .map((entity) => entity.label)
+      .join(", ")}.`;
   }
 
   private makeTrace(

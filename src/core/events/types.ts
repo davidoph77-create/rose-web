@@ -3,6 +3,8 @@ export type RoseEventName =
   | "brain.request.received"
   | "context.analyzed"
   | "memory.searched"
+  | "cognitive.memory.searched"
+  | "knowledge.graph.updated"
   | "reasoning.completed"
   | "plan.created"
   | "agents.selected"
