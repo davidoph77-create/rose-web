@@ -16,7 +16,9 @@ export class CoreEventLogger {
   private readonly logs: CoreLogEntry[] = [];
   private subscriptions: RoseEventSubscription[] = [];
 
-  constructor(private readonly eventBus: EventBus) {}
+  constructor(
+    private readonly eventBus: EventBus
+  ) {}
 
   start(): void {
     this.stop();
@@ -31,6 +33,9 @@ export class CoreEventLogger {
       "reasoning.completed",
       "plan.created",
       "plan.step.updated",
+      "goal.created",
+      "goal.updated",
+      "goal.completed",
       "agents.selected",
       "explanation.generated",
       "personality.applied",
@@ -38,21 +43,33 @@ export class CoreEventLogger {
       "core.error",
     ];
 
-    this.subscriptions = eventNames.map((eventName) =>
-      this.eventBus.subscribe(eventName, (event) => {
-        this.logs.push({
-          eventName: event.name,
-          source: event.source,
-          message: this.createMessage(event),
-          createdAt: event.createdAt,
-        });
-      })
-    );
+    this.subscriptions =
+      eventNames.map(
+        (eventName) =>
+          this.eventBus.subscribe(
+            eventName,
+            (event) => {
+              this.logs.push({
+                eventName:
+                  event.name,
+                source:
+                  event.source,
+                message:
+                  this.createMessage(
+                    event
+                  ),
+                createdAt:
+                  event.createdAt,
+              });
+            }
+          )
+      );
   }
 
   stop(): void {
-    this.subscriptions.forEach((subscription) =>
-      subscription.unsubscribe()
+    this.subscriptions.forEach(
+      (subscription) =>
+        subscription.unsubscribe()
     );
     this.subscriptions = [];
   }
@@ -65,8 +82,16 @@ export class CoreEventLogger {
     this.logs.length = 0;
   }
 
-  private createMessage(event: RoseEvent): string {
+  private createMessage(
+    event: RoseEvent
+  ): string {
     switch (event.name) {
+      case "goal.created":
+        return "Un nouvel objectif a été créé.";
+      case "goal.updated":
+        return "Un objectif a été mis à jour.";
+      case "goal.completed":
+        return "Un objectif a été terminé.";
       case "plan.created":
         return "Un plan structuré a été préparé.";
       case "plan.step.updated":

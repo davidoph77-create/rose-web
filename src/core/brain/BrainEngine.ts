@@ -7,6 +7,9 @@ import { ContextEngine } from "../context/ContextEngine";
 import { EventBus } from "../events/EventBus";
 import { ExplainEngine } from "../explain/ExplainEngine";
 import {
+  GoalEngine,
+} from "../goals";
+import {
   KnowledgeEntity,
   KnowledgeGraphEngine,
 } from "../knowledge";
@@ -33,26 +36,35 @@ export class BrainEngine
 {
   readonly id = "brain-engine";
   readonly name = "Brain Engine";
-  readonly version = "1.3.0";
+  readonly version = "1.4.0";
   readonly maturity = 2 as const;
 
   private status: CoreStatus = "idle";
 
-  private readonly contextEngine = new ContextEngine();
-  private readonly memoryEngine = new MemoryEngine();
+  private readonly contextEngine =
+    new ContextEngine();
+  private readonly memoryEngine =
+    new MemoryEngine();
   private readonly cognitiveMemoryEngine =
     new CognitiveMemoryEngine();
   private readonly knowledgeGraphEngine =
     new KnowledgeGraphEngine();
-  private readonly reasoningEngine = new ReasoningEngine();
-  private readonly plannerEngine = new PlannerEngine();
+  private readonly reasoningEngine =
+    new ReasoningEngine();
+  private readonly plannerEngine =
+    new PlannerEngine();
+  private readonly goalEngine =
+    new GoalEngine();
   private readonly personalityEngine =
     new PersonalityEngine();
-  private readonly explainEngine = new ExplainEngine();
-  private readonly agentManager = new AgentManager();
+  private readonly explainEngine =
+    new ExplainEngine();
+  private readonly agentManager =
+    new AgentManager();
 
   constructor(
-    private readonly eventBus: EventBus = new EventBus()
+    private readonly eventBus:
+      EventBus = new EventBus()
   ) {}
 
   getStatus(): CoreStatus {
@@ -63,16 +75,22 @@ export class BrainEngine
     return this.eventBus;
   }
 
-  getCognitiveMemory(): CognitiveMemoryEngine {
+  getCognitiveMemory():
+    CognitiveMemoryEngine {
     return this.cognitiveMemoryEngine;
   }
 
-  getKnowledgeGraph(): KnowledgeGraphEngine {
+  getKnowledgeGraph():
+    KnowledgeGraphEngine {
     return this.knowledgeGraphEngine;
   }
 
   getPlanner(): PlannerEngine {
     return this.plannerEngine;
+  }
+
+  getGoals(): GoalEngine {
+    return this.goalEngine;
   }
 
   async initialize(): Promise<void> {
@@ -85,6 +103,7 @@ export class BrainEngine
       this.knowledgeGraphEngine.initialize(),
       this.reasoningEngine.initialize(),
       this.plannerEngine.initialize(),
+      this.goalEngine.initialize(),
       this.personalityEngine.initialize(),
       this.explainEngine.initialize(),
       this.agentManager.initialize(),
@@ -102,26 +121,40 @@ export class BrainEngine
     );
   }
 
-  async execute(input: CoreInput): Promise<CoreOutput> {
+  async execute(
+    input: CoreInput
+  ): Promise<CoreOutput> {
     this.status = "running";
-    const trace: CoreTraceStep[] = [];
+    const trace:
+      CoreTraceStep[] = [];
 
     try {
-      const context = await this.contextEngine.execute(input);
+      const context =
+        await this.contextEngine.execute(
+          input
+        );
+
       const historicalMemory =
-        await this.memoryEngine.execute(context);
+        await this.memoryEngine.execute(
+          context
+        );
+
       const cognitiveResults =
         this.cognitiveMemoryEngine.search({
           text: input.message,
           limit: 5,
         });
-      const knowledgeExtraction =
-        this.knowledgeGraphEngine.extract(input.message);
 
-      const combinedMemory = this.combineMemories(
-        historicalMemory,
-        cognitiveResults
-      );
+      const knowledgeExtraction =
+        this.knowledgeGraphEngine.extract(
+          input.message
+        );
+
+      const combinedMemory =
+        this.combineMemories(
+          historicalMemory,
+          cognitiveResults
+        );
 
       const reasoning =
         await this.reasoningEngine.execute({
@@ -132,7 +165,8 @@ export class BrainEngine
       const plannerResult =
         await this.plannerEngine.execute({
           objective: input.message,
-          recommendations: reasoning.recommendations,
+          recommendations:
+            reasoning.recommendations,
         });
 
       const plan = plannerResult.plan;
@@ -144,18 +178,35 @@ export class BrainEngine
       );
 
       const agents =
-        await this.agentManager.execute(context);
+        await this.agentManager.execute(
+          context
+        );
 
       const explanation =
         await this.explainEngine.execute({
           context,
-          recommendations: reasoning.recommendations,
+          recommendations:
+            reasoning.recommendations,
           memoryCount:
-            combinedMemory.relevantMemories.length,
+            combinedMemory
+              .relevantMemories.length,
         });
+
+      const activeGoals =
+        await this.goalEngine.execute({
+          type: "list",
+        });
+
+      const goalsSummary =
+        Array.isArray(activeGoals)
+          ? this.describeGoals(
+              activeGoals
+            )
+          : "";
 
       const baseResponse = [
         reasoning.summary,
+        goalsSummary,
         this.describePlan(plan),
         this.describeKnowledge(
           knowledgeExtraction.entities
@@ -170,10 +221,20 @@ export class BrainEngine
         await this.personalityEngine.execute({
           text: baseResponse,
           userName:
-            typeof input.metadata?.userName === "string"
+            typeof input.metadata?.userName ===
+            "string"
               ? input.metadata.userName
               : undefined,
         });
+
+      trace.push(
+        this.makeTrace(
+          this.goalEngine.id,
+          Array.isArray(activeGoals)
+            ? `${activeGoals.length} objectif(s) chargé(s)`
+            : "Aucun objectif chargé"
+        )
+      );
 
       trace.push(
         this.makeTrace(
@@ -184,48 +245,65 @@ export class BrainEngine
         )
       );
 
-      const output: CoreOutput = {
+      return {
         success: true,
         response,
         context,
-        recommendations: reasoning.recommendations,
+        recommendations:
+          reasoning.recommendations,
         trace,
         missingInformation:
           reasoning.missingInformation,
       };
-
-      await this.eventBus.publish(
-        "brain.response.ready",
-        output,
-        this.id
-      );
-
-      return output;
     } finally {
       this.status = "ready";
     }
   }
 
-  private describePlan(plan: Plan): string {
+  private describeGoals(
+    goals: Array<{
+      title: string;
+      progress: number;
+      status: string;
+    }>
+  ): string {
+    const active = goals.filter(
+      (goal) =>
+        goal.status === "active" ||
+        goal.status === "blocked"
+    );
+
+    if (active.length === 0) {
+      return "";
+    }
+
+    return `Objectifs suivis : ${active
+      .slice(0, 3)
+      .map(
+        (goal) =>
+          `${goal.title} (${Math.round(
+            goal.progress
+          )} %)`
+      )
+      .join(", ")}.`;
+  }
+
+  private describePlan(
+    plan: Plan
+  ): string {
     if (plan.steps.length === 0) {
       return "";
     }
 
-    const steps = plan.steps
-      .map(
-        (step) =>
-          `${step.order}. ${step.title} ` +
-          `(${step.priority}, ${step.estimatedMinutes} min)`
-      )
-      .join(" → ");
-
     return (
-      `Plan : ${steps}. ` +
+      `Plan : ${plan.steps
+        .map(
+          (step) =>
+            `${step.order}. ${step.title}`
+        )
+        .join(" → ")}. ` +
       `Durée estimée : ${plan.totalEstimatedMinutes} min. ` +
-      `Risque : ${plan.riskLevel}. ` +
-      `Validation requise : ${
-        plan.requiresValidation ? "oui" : "non"
-      }.`
+      `Risque : ${plan.riskLevel}.`
     );
   }
 
@@ -234,17 +312,20 @@ export class BrainEngine
     cognitive: RankedMemory[]
   ): MemorySummary {
     return {
-      relevantMemories: Array.from(
-        new Set([
-          ...historical.relevantMemories,
-          ...cognitive.map(
-            (result) => result.memory.content
-          ),
-        ])
-      ).slice(0, 8),
+      relevantMemories:
+        Array.from(
+          new Set([
+            ...historical.relevantMemories,
+            ...cognitive.map(
+              (result) =>
+                result.memory.content
+            ),
+          ])
+        ).slice(0, 8),
       sourceCount:
         historical.sourceCount +
-        this.cognitiveMemoryEngine.getAll().length,
+        this.cognitiveMemoryEngine
+          .getAll().length,
     };
   }
 
@@ -256,7 +337,10 @@ export class BrainEngine
     }
 
     return `Connaissances détectées : ${entities
-      .map((entity) => entity.label)
+      .map(
+        (entity) =>
+          entity.label
+      )
       .join(", ")}.`;
   }
 
@@ -270,7 +354,8 @@ export class BrainEngine
       label: moduleId,
       status: "success",
       detail,
-      createdAt: new Date().toISOString(),
+      createdAt:
+        new Date().toISOString(),
     };
   }
 }
