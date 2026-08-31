@@ -7,3 +7,4 @@ export * from "./agents";
 export * from "./communication";
 export * from "./supervision";
 export * from "./cognitive";
+export * from "./memory";
