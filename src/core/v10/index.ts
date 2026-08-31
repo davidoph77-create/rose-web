@@ -9,3 +9,4 @@ export * from "./supervision";
 export * from "./cognitive";
 export * from "./memory";
 export * from "./planner_v3";
+export * from "./goal_v3";
