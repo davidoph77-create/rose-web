@@ -1,0 +1,2 @@
+import { BrainV2Context, BrainV2Input } from "./BrainTypes";
+export class BrainV2GoalLinker { readonly id="brain-v2-goal-linker"; findRelated(c:BrainV2Context,g:NonNullable<BrainV2Input["currentGoals"]>=[]){return g.map(x=>({x,score:c.keywords.reduce((n,k)=>n+(x.title.toLowerCase().includes(k.toLowerCase())?1:0),0)})).filter(v=>v.score>0).sort((a,b)=>b.score-a.score).slice(0,5).map(v=>`${v.x.title}${typeof v.x.progress==="number"?` — ${Math.round(v.x.progress)} %`:""}${v.x.status?` — ${v.x.status}`:""}`)} }

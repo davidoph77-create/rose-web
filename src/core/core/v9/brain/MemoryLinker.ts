@@ -1,0 +1,2 @@
+import { BrainV2Context } from "./BrainTypes";
+export class BrainV2MemoryLinker { readonly id="brain-v2-memory-linker"; findRelated(c:BrainV2Context,m:string[]=[]){const terms=new Set(c.keywords.map(x=>x.toLowerCase())); return m.map(memory=>({memory,score:[...terms].reduce((n,t)=>n+(memory.toLowerCase().includes(t)?2:0),0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,5).map(x=>x.memory);} }

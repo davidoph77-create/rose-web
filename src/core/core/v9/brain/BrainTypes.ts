@@ -1,0 +1,13 @@
+export type BrainV2Intent = "question" | "plan" | "goal" | "decision" | "schedule" | "business" | "memory" | "project" | "other";
+export type BrainV2Domain = "rose" | "business" | "property" | "finance" | "agenda" | "tasks" | "learning" | "personal" | "general";
+export type BrainV2Priority = "low" | "medium" | "high" | "critical";
+export type BrainV2Urgency = "low" | "normal" | "high" | "immediate";
+export type BrainV2GoalStatus = "proposed" | "active" | "blocked" | "completed" | "cancelled";
+export type BrainV2Context = { message:string; normalizedMessage:string; intent:BrainV2Intent; domains:BrainV2Domain[]; urgency:BrainV2Urgency; confidence:number; detectedDates:string[]; keywords:string[]; needsPlanning:boolean; needsDecision:boolean; needsGoal:boolean; createdAt:string; };
+export type BrainV2Goal = { id:string; title:string; description:string; domain:BrainV2Domain; priority:BrainV2Priority; status:BrainV2GoalStatus; progress:number; source:"user"|"brain"; requiresValidation:boolean; createdAt:string; };
+export type BrainV2PriorityScore = { priority:BrainV2Priority; score:number; reasons:string[]; };
+export type BrainV2DecisionOption = { id:string; title:string; description:string; score:number; benefits:string[]; risks:string[]; requiresValidation:boolean; };
+export type BrainV2Decision = { selectedOptionId?:string; options:BrainV2DecisionOption[]; explanation:string; confidence:number; requiresValidation:boolean; };
+export type BrainV2Action = { id:string; title:string; description:string; order:number; priority:BrainV2Priority; requiresValidation:boolean; status:"proposed"; };
+export type BrainV2Input = { message:string; userName?:string; memories?:string[]; currentGoals?:Array<{id?:string; title:string; progress?:number; status?:string}>; metadata?:Record<string,unknown>; };
+export type BrainV2Output = { context:BrainV2Context; proposedGoals:BrainV2Goal[]; priority:BrainV2PriorityScore; decision:BrainV2Decision; actions:BrainV2Action[]; relatedMemories:string[]; relatedGoals:string[]; summary:string; requiresValidation:boolean; trace:string[]; createdAt:string; };
