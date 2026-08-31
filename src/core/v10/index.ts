@@ -13,3 +13,4 @@ export * from "./goal_v3";
 export * from "./autonomy_v3";
 export * from "./rose_os";
 export * from "./app_bridge";
+export * from "./app_hook";
