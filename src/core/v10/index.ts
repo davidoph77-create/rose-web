@@ -5,3 +5,4 @@ export * from "./diagnostics";
 export * from "./runtime";
 export * from "./agents";
 export * from "./communication";
+export * from "./supervision";
