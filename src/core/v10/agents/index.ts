@@ -6,3 +6,4 @@ export * from "./AgentRegistry";
 export * from "./AgentManager";
 export * from "./AgentRuntimeBridge";
 export * from "./AgentCoreSelfTest";
+export * from "./builtin";
