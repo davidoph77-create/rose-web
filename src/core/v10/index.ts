@@ -10,3 +10,4 @@ export * from "./cognitive";
 export * from "./memory";
 export * from "./planner_v3";
 export * from "./goal_v3";
+export * from "./autonomy_v3";
