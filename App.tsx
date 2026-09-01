@@ -1,5 +1,6 @@
 ﻿import RoseScreen from "./src/screens/RoseScreen";
 import { createRoseAppHook, formatRoseV10AppResponse } from "./src/core/v10/app_hook";
+import { recordApprovalRequest } from "./src/core/v10/approval_ui";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -12,6 +13,7 @@ import CerveauScreen from "./src/screens/CerveauScreen";
 import CoachScreen from "./src/screens/CoachScreen";
 import AutonomieScreen from "./src/screens/AutonomieScreen";
 import TaskScreen from "./src/screens/TaskScreen";
+import ApprovalScreen from "./src/screens/ApprovalScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -68,7 +70,8 @@ type Tab =
   | "cerveau"
   | "coach"
   | "autonomie"
-  | "tasks";
+  | "tasks"
+  | "approvals";
 
 type Memoire = {
   id: number;
@@ -603,7 +606,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-016 - Approval Workflow
+  // Rose V10-017 - Approval UI & Decision Store
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -632,14 +635,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-016",
+        appVersion: "V10-017",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-016] mode=${result.mode}`,
+      `[Rose V10-017] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -660,9 +663,19 @@ export default function App() {
           result.value
         );
 
-      setRoseReponse(summary.text);
+      
+      if (
+        (summary.pendingApprovalCount ?? 0) > 0
+      ) {
+        await recordApprovalRequest({
+          message: messageEnvoye,
+          intent: summary.intent,
+          agents: summary.selectedAgents,
+        });
+      }
+setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-016 : ${summary.intent ?? "general"} / validations=${summary.pendingValidationCount ?? 0} / approvals=${summary.pendingApprovalCount ?? 0}`
+        `V10-017 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / store=persisted`
       );
       parler(summary.text);
       setMessage("");
@@ -1303,6 +1316,11 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
             active={tab === "tasks"}
             onPress={() => setTab("tasks")}
           />
+          <TabButton
+            title="Validations"
+            active={tab === "approvals"}
+            onPress={() => setTab("approvals")}
+          />
         </View>
 
         <ScrollView
@@ -1436,6 +1454,9 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
               setRoseTasks={setRoseTasks}
               regenererTachesRose={regenererTachesRose}
             />
+          )}
+          {tab === "approvals" && (
+            <ApprovalScreen />
           )}
         </ScrollView>
       </View>
