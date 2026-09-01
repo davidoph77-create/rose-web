@@ -1,115 +1,919 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { listAuditReports, formatAuditReport } from "../core/v10/audit_report";
-import type { AuditReport } from "../core/v10/audit_report";
+﻿import React, { useCallback, useMemo, useState } from "react";
+import {
+  Alert,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-type RiskFilter = "all" | "low" | "medium" | "high";
+type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
+
+type AuditReport = {
+  id?: string;
+  createdAt?: string;
+  riskLevel?: RiskLevel | string;
+  totalEvidence?: number;
+  verifiedEvidence?: number;
+  failedEvidence?: number;
+  alteredEvidence?: number;
+  externalExecutionDetected?: boolean;
+  adapterId?: string;
+  capability?: string;
+  integrityRate?: number;
+  summary?: string;
+  text?: string;
+  hashes?: string[];
+  [key: string]: any;
+};
+
+type HealthBand = "HEALTHY" | "WATCH" | "HIGH_RISK";
+
+const AUDIT_KEYS = [
+  "rose_v10_audit_reports",
+  "rose_v10_audits",
+  "rose.audit.reports",
+  "rose.audit.history",
+];
+
+function normalizeRisk(value: any): RiskLevel {
+  const v = String(value ?? "LOW").toUpperCase();
+  if (v.includes("HIGH")) return "HIGH";
+  if (v.includes("MED")) return "MEDIUM";
+  return "LOW";
+}
+
+function getDateValue(value: any): number {
+  const t = new Date(value ?? 0).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function getIntegrity(report: AuditReport): number {
+  if (typeof report.integrityRate === "number") {
+    return Math.max(0, Math.min(100, Math.round(report.integrityRate)));
+  }
+  const total = Number(report.totalEvidence ?? 0);
+  const verified = Number(report.verifiedEvidence ?? 0);
+  const failed = Number(report.failedEvidence ?? 0);
+  const altered = Number(report.alteredEvidence ?? 0);
+
+  if (total > 0) {
+    const good = Math.max(0, total - failed - altered);
+    const base = verified > 0 ? verified : good;
+    return Math.max(0, Math.min(100, Math.round((base / total) * 100)));
+  }
+
+  if (altered > 0 || failed > 0 || report.externalExecutionDetected) return 0;
+  return 100;
+}
+
+function DashboardCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string | number;
+  note?: string;
+}) {
+  return (
+    <View style={styles.dashboardCard}>
+      <Text style={styles.dashboardValue}>{value}</Text>
+      <Text style={styles.dashboardLabel}>{label}</Text>
+      {!!note && <Text style={styles.dashboardNote}>{note}</Text>}
+    </View>
+  );
+}
+
+function MiniBar({
+  label,
+  value,
+  max,
+}: {
+  label: string;
+  value: number;
+  max: number;
+}) {
+  const width = max <= 0 ? 0 : Math.max(4, Math.min(100, Math.round((value / max) * 100)));
+  return (
+    <View style={styles.barRow}>
+      <Text style={styles.barLabel}>{label}</Text>
+      <View style={styles.barTrack}>
+        <View style={[styles.barFill, { width: `${width}%` }]} />
+      </View>
+      <Text style={styles.barValue}>{value}</Text>
+    </View>
+  );
+}
 
 export default function AuditHistoryScreen() {
   const [reports, setReports] = useState<AuditReport[]>([]);
+  const [query, setQuery] = useState("");
+  const [riskFilter, setRiskFilter] = useState<"ALL" | RiskLevel>("ALL");
   const [selected, setSelected] = useState<AuditReport | null>(null);
   const [loading, setLoading] = useState(false);
-  const [lastExportedId, setLastExportedId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
 
-  const charger = useCallback(async () => {
+  const loadReports = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listAuditReports();
-      setReports(data);
-      if (selected && !data.find((item) => item.id === selected.id)) setSelected(null);
-    } finally { setLoading(false); }
-  }, [selected]);
+      let all: AuditReport[] = [];
+      for (const key of AUDIT_KEYS) {
+        const raw = await AsyncStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) all = all.concat(parsed);
+          else if (parsed && Array.isArray(parsed.reports)) all = all.concat(parsed.reports);
+        } catch {}
+      }
 
-  useEffect(() => { charger(); }, []);
+      const seen = new Set<string>();
+      const deduped = all.filter((item, idx) => {
+        const id = String(
+          item?.id ??
+            `${item?.createdAt ?? "date"}-${item?.adapterId ?? "adapter"}-${idx}`
+        );
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
 
-  const partagerRapport = async (report: AuditReport) => {
-    await Share.share({ title: `Rose Audit ${report.id}`, message: formatAuditReport(report) });
-    setLastExportedId(report.id);
-  };
+      deduped.sort((a, b) => getDateValue(b.createdAt) - getDateValue(a.createdAt));
+      setReports(deduped);
+    } catch (error: any) {
+      Alert.alert("Audits", error?.message ?? "Impossible de charger les audits.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const filteredReports = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return reports.filter((report) => {
-      const matchesRisk = riskFilter === "all" || report.overallRisk === riskFilter;
-      if (!matchesRisk) return false;
-      if (!normalized) return true;
-      const haystack = [report.id, report.summary, report.overallRisk, ...report.entries.map((entry) => [entry.adapterId, entry.capability, entry.verificationStatus, entry.integrityHash, entry.risk].join(" "))].join(" ").toLowerCase();
-      return haystack.includes(normalized);
+  React.useEffect(() => {
+    loadReports();
+  }, [loadReports]);
+
+  const stats = useMemo(() => {
+    const totalReports = reports.length;
+    const totalEvidence = reports.reduce((s, r) => s + Number(r.totalEvidence ?? 0), 0);
+    const verifiedEvidence = reports.reduce((s, r) => s + Number(r.verifiedEvidence ?? 0), 0);
+    const failedEvidence = reports.reduce((s, r) => s + Number(r.failedEvidence ?? 0), 0);
+    const alteredEvidence = reports.reduce((s, r) => s + Number(r.alteredEvidence ?? 0), 0);
+    const externalDetected = reports.filter((r) => !!r.externalExecutionDetected).length;
+
+    const integrityValues = reports.map(getIntegrity);
+    const avgIntegrity =
+      integrityValues.length > 0
+        ? Math.round(integrityValues.reduce((a, b) => a + b, 0) / integrityValues.length)
+        : 100;
+
+    const low = reports.filter((r) => normalizeRisk(r.riskLevel) === "LOW").length;
+    const medium = reports.filter((r) => normalizeRisk(r.riskLevel) === "MEDIUM").length;
+    const high = reports.filter((r) => normalizeRisk(r.riskLevel) === "HIGH").length;
+
+    const incidentCount = failedEvidence + alteredEvidence + externalDetected + high;
+
+    let score = 100;
+    score -= Math.min(40, failedEvidence * 8);
+    score -= Math.min(40, alteredEvidence * 15);
+    score -= Math.min(30, externalDetected * 20);
+    score -= Math.min(25, high * 5);
+    score -= Math.max(0, 100 - avgIntegrity) * 0.35;
+    score = Math.max(0, Math.min(100, Math.round(score)));
+
+    let band: HealthBand = "HEALTHY";
+    if (score < 60 || externalDetected > 0 || alteredEvidence > 0) band = "HIGH_RISK";
+    else if (score < 85 || failedEvidence > 0 || high > 0) band = "WATCH";
+
+    return {
+      totalReports,
+      totalEvidence,
+      verifiedEvidence,
+      failedEvidence,
+      alteredEvidence,
+      externalDetected,
+      avgIntegrity,
+      low,
+      medium,
+      high,
+      incidentCount,
+      score,
+      band,
+    };
+  }, [reports]);
+
+  const recentTrend = useMemo(() => {
+    const newest = reports.slice(0, 5).reverse();
+    return newest.map((r, index) => ({
+      id: String(r.id ?? index),
+      integrity: getIntegrity(r),
+      risk: normalizeRisk(r.riskLevel),
+      createdAt: r.createdAt,
+    }));
+  }, [reports]);
+
+
+  const connectorReadiness = useMemo(() => {
+    const blockers: string[] = [];
+    if (stats.score < 85) blockers.push("Health Score below 85");
+    if (stats.alteredEvidence > 0) blockers.push("Altered evidence detected");
+    if (stats.failedEvidence > 0) blockers.push("Verification failures present");
+    if (stats.externalDetected > 0) blockers.push("External execution detected");
+    if (stats.high > 0) blockers.push("HIGH risk report present");
+
+    const ready = blockers.length === 0;
+    return {
+      calendarReady: ready,
+      webReady: ready,
+      blockers,
+      safeToPrepareConnectors: ready,
+    };
+  }, [stats]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return reports.filter((r) => {
+      const risk = normalizeRisk(r.riskLevel);
+      if (riskFilter !== "ALL" && risk !== riskFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        r.id,
+        r.adapterId,
+        r.capability,
+        r.summary,
+        r.text,
+        r.createdAt,
+        ...(Array.isArray(r.hashes) ? r.hashes : []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
     });
   }, [reports, query, riskFilter]);
 
-  const dashboard = useMemo(() => {
-    const totalEvidence = reports.reduce((s,r)=>s+(r.totalEvidence??0),0);
-    const verifiedEvidence = reports.reduce((s,r)=>s+(r.verifiedEvidence??0),0);
-    const failedEvidence = reports.reduce((s,r)=>s+(r.failedEvidence??0),0);
-    const alteredEvidence = reports.reduce((s,r)=>s+(r.alteredEvidence??0),0);
-    const externalDetected = reports.reduce((s,r)=>s+r.entries.filter(e=>e.externalExecutionDetected).length,0);
-    const low = reports.filter(r=>r.overallRisk==="low").length;
-    const medium = reports.filter(r=>r.overallRisk==="medium").length;
-    const high = reports.filter(r=>r.overallRisk==="high").length;
-    const integrityRate = totalEvidence > 0 ? Math.round((verifiedEvidence/totalEvidence)*100) : 100;
-    return {totalReports:reports.length,totalEvidence,verifiedEvidence,failedEvidence,alteredEvidence,externalDetected,low,medium,high,integrityRate};
-  }, [reports]);
+  const shareReport = async (report: AuditReport) => {
+    const text =
+      report.text ??
+      `ROSE V10 - AUDIT\n\nID: ${report.id ?? "-"}\nRisk: ${normalizeRisk(
+        report.riskLevel
+      )}\nIntegrity: ${getIntegrity(report)}%\nExternal execution: ${
+        report.externalExecutionDetected ? "YES" : "NO"
+      }`;
+    await Share.share({ message: text });
+  };
 
-  return <View style={styles.container}>
-    <Text style={styles.title}>Historique Audit V10</Text>
-    <Text style={styles.subtitle}>V10-034 ajoute le tableau de bord statistique des audits : rapports, preuves, intégrité, échecs, altérations et niveaux de risque.</Text>
+  const healthLabel =
+    stats.band === "HEALTHY"
+      ? "SYSTEME SAIN"
+      : stats.band === "WATCH"
+      ? "A SURVEILLER"
+      : "RISQUE ELEVE";
 
-    <View style={styles.dashboardGrid}>
-      <DashboardCard label="Rapports" value={dashboard.totalReports}/>
-      <DashboardCard label="Preuves" value={dashboard.totalEvidence}/>
-      <DashboardCard label="Vérifiées" value={dashboard.verifiedEvidence}/>
-      <DashboardCard label="Intégrité" value={`${dashboard.integrityRate}%`}/>
-      <DashboardCard label="Échecs" value={dashboard.failedEvidence}/>
-      <DashboardCard label="Altérées" value={dashboard.alteredEvidence}/>
-    </View>
+  const healthText =
+    stats.band === "HEALTHY"
+      ? "Integrite stable et aucun incident critique detecte."
+      : stats.band === "WATCH"
+      ? "Des signaux doivent etre surveilles avant toute activation externe."
+      : "Blocage recommande. Verifier les preuves et les incidents avant de continuer.";
 
-    <View style={styles.securityCard}>
-      <Text style={styles.securityTitle}>Résumé sécurité</Text>
-      <Text style={styles.securityLine}>LOW : {dashboard.low} • MEDIUM : {dashboard.medium} • HIGH : {dashboard.high}</Text>
-      <Text style={styles.securityLine}>Exécutions externes détectées : {dashboard.externalDetected}</Text>
-      <Text style={[styles.securityStatus,(dashboard.high>0||dashboard.alteredEvidence>0||dashboard.externalDetected>0)&&styles.securityStatusWarning]}>
-        {dashboard.high>0||dashboard.alteredEvidence>0||dashboard.externalDetected>0 ? "ATTENTION : vérification recommandée." : "ÉTAT AUDIT : STABLE."}
+  return (
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Audits V10</Text>
+      <Text style={styles.subtitle}>
+        Historique, integrite, tendances et score de sante du moteur V10.
       </Text>
-    </View>
 
-    <View style={styles.stats}><Stat label="LOW" value={dashboard.low}/><Stat label="MEDIUM" value={dashboard.medium}/><Stat label="HIGH" value={dashboard.high}/></View>
+      <View style={styles.healthCard}>
+        <View style={styles.healthHeader}>
+          <View>
+            <Text style={styles.healthCaption}>Rose V10 Health Score</Text>
+            <Text style={styles.healthScore}>{stats.score}/100</Text>
+          </View>
+          <View style={styles.healthBadge}>
+            <Text style={styles.healthBadgeText}>{healthLabel}</Text>
+          </View>
+        </View>
+        <Text style={styles.healthText}>{healthText}</Text>
+        <View style={styles.healthTrack}>
+          <View style={[styles.healthFill, { width: `${stats.score}%` }]} />
+        </View>
+      </View>
 
-    <TextInput value={query} onChangeText={setQuery} placeholder="Rechercher id, adapter, hash..." placeholderTextColor="#64748b" style={styles.searchInput} autoCapitalize="none" autoCorrect={false}/>
-    <View style={styles.filters}>
-      <FilterButton label="TOUS" active={riskFilter==="all"} onPress={()=>setRiskFilter("all")}/>
-      <FilterButton label="LOW" active={riskFilter==="low"} onPress={()=>setRiskFilter("low")}/>
-      <FilterButton label="MEDIUM" active={riskFilter==="medium"} onPress={()=>setRiskFilter("medium")}/>
-      <FilterButton label="HIGH" active={riskFilter==="high"} onPress={()=>setRiskFilter("high")}/>
-    </View>
-    <View style={styles.toolbar}><TouchableOpacity style={styles.refreshButton} onPress={charger}><Text style={styles.buttonText}>{loading?"Chargement...":"Actualiser"}</Text></TouchableOpacity><Text style={styles.resultCount}>{filteredReports.length} résultat(s)</Text></View>
+      <View style={styles.readinessCard}>
+        <Text style={styles.sectionTitle}>Connector Readiness Gate</Text>
+        <Text style={styles.sectionHint}>
+          Prepares controlled Calendar and Web connectors. No real external action is enabled yet.
+        </Text>
 
-    {selected ? <View style={styles.detailCard}>
-      <View style={styles.detailHeader}><Text style={styles.detailTitle}>Détail du rapport</Text><TouchableOpacity onPress={()=>setSelected(null)}><Text style={styles.closeText}>Fermer</Text></TouchableOpacity></View>
-      <Text style={styles.reportText}>{formatAuditReport(selected)}</Text>
-      <TouchableOpacity style={styles.exportButton} onPress={()=>partagerRapport(selected)}><Text style={styles.buttonText}>Partager le rapport</Text></TouchableOpacity>
-      {lastExportedId===selected.id ? <Text style={styles.exportNotice}>Snapshot d'audit prêt pour partage.</Text>:null}
-      <Text style={styles.sectionTitle}>Entrées</Text>
-      {selected.entries.map((entry)=><View key={entry.evidenceId} style={styles.entryCard}><Text style={styles.entryAdapter}>{entry.adapterId}</Text><Text style={styles.entryText}>Capacité : {entry.capability}</Text><Text style={styles.entryText}>Statut : {entry.verificationStatus}</Text><Text style={styles.entryText}>Risque : {entry.risk.toUpperCase()}</Text><Text style={styles.hash}>{entry.integrityHash}</Text><Text style={styles.safeNotice}>Exécution externe : {entry.externalExecutionDetected?"OUI":"NON"}</Text></View>)}
-    </View>:null}
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Agenda / Calendar</Text>
+          <Text style={styles.readinessValue}>
+            {connectorReadiness.calendarReady ? "READY FOR CONNECTION" : "BLOCKED"}
+          </Text>
+        </View>
 
-    {filteredReports.length===0 ? <View style={styles.empty}><Text style={styles.emptyText}>Aucun rapport ne correspond à la recherche.</Text></View> : <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>{filteredReports.map((report)=><View key={report.id} style={styles.card}><TouchableOpacity onPress={()=>setSelected(report)}><View style={styles.topRow}><View style={[styles.riskBadge,report.overallRisk==="medium"&&styles.riskMedium,report.overallRisk==="high"&&styles.riskHigh]}><Text style={styles.riskText}>{report.overallRisk.toUpperCase()}</Text></View><Text style={styles.date}>{new Date(report.generatedAt).toLocaleString()}</Text></View><Text style={styles.reportId}>{report.id}</Text><Text style={styles.summary}>{report.summary}</Text><Text style={styles.meta}>Preuves : {report.totalEvidence} • Vérifiées : {report.verifiedEvidence}</Text><Text style={styles.meta}>Échecs : {report.failedEvidence} • Altérées : {report.alteredEvidence}</Text><Text style={styles.openText}>Ouvrir le rapport</Text></TouchableOpacity><TouchableOpacity style={styles.smallExportButton} onPress={()=>partagerRapport(report)}><Text style={styles.smallExportText}>Exporter / Partager</Text></TouchableOpacity></View>)}</ScrollView>}
-  </View>;
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Web</Text>
+          <Text style={styles.readinessValue}>
+            {connectorReadiness.webReady ? "READY FOR CONNECTION" : "BLOCKED"}
+          </Text>
+        </View>
+
+        {connectorReadiness.blockers.length === 0 ? (
+          <Text style={styles.readinessOk}>
+            V10 is ready for controlled connector integration.
+          </Text>
+        ) : (
+          <View style={styles.blockerBox}>
+            <Text style={styles.blockerTitle}>Safety blockers:</Text>
+            {connectorReadiness.blockers.map((item, index) => (
+              <Text key={`${item}-${index}`} style={styles.blockerText}>- {item}</Text>
+            ))}
+          </View>
+        )}
+
+        <Text style={styles.readinessSafety}>
+          Real Calendar execution: DISABLED{"\n"}
+          Real Web execution: DISABLED{"\n"}
+          Human validation: REQUIRED
+        </Text>
+      </View>
+      <View style={styles.calendarConnectorCard}>
+        <Text style={styles.sectionTitle}>Calendar Controlled Connector</Text>
+        <Text style={styles.sectionHint}>
+          The Calendar execution path is now connected to Rose V10 safety controls.
+          V10-037 only performs controlled dry-run validation.
+        </Text>
+
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Connector</Text>
+          <Text style={styles.calendarConnectorValue}>CONNECTED / DRY-RUN</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Human approval</Text>
+          <Text style={styles.calendarConnectorValue}>REQUIRED</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Release Gate</Text>
+          <Text style={styles.calendarConnectorValue}>REQUIRED</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Evidence integrity</Text>
+          <Text style={styles.calendarConnectorValue}>REQUIRED</Text>
+        </View>
+
+        <Text style={styles.calendarConnectorSafety}>
+          Real Calendar write: DISABLED in V10-037{"\n"}
+          Next step: inject the real calendar provider behind this safety gate.
+        </Text>
+      </View>
+      <View style={styles.dashboardGrid}>
+        <DashboardCard label="Rapports" value={stats.totalReports} />
+        <DashboardCard label="Preuves" value={stats.totalEvidence} />
+        <DashboardCard label="Integrite" value={`${stats.avgIntegrity}%`} />
+        <DashboardCard label="Incidents" value={stats.incidentCount} />
+        <DashboardCard label="Echecs" value={stats.failedEvidence} />
+        <DashboardCard label="Alterees" value={stats.alteredEvidence} />
+      </View>
+
+      <View style={styles.securityCard}>
+        <Text style={styles.sectionTitle}>Tendances recentes</Text>
+        <Text style={styles.sectionHint}>
+          Cinq audits les plus recents. La barre represente le taux d'integrite.
+        </Text>
+        {recentTrend.length === 0 ? (
+          <Text style={styles.empty}>Aucun audit pour le moment.</Text>
+        ) : (
+          recentTrend.map((item, index) => (
+            <View key={`${item.id}-${index}`} style={styles.trendRow}>
+              <View style={styles.trendTop}>
+                <Text style={styles.trendIndex}>#{index + 1}</Text>
+                <Text style={styles.trendRisk}>{item.risk}</Text>
+                <Text style={styles.trendDate}>
+                  {item.createdAt ? new Date(item.createdAt).toLocaleString() : "-"}
+                </Text>
+              </View>
+              <View style={styles.trendTrack}>
+                <View
+                  style={[styles.trendFill, { width: `${Math.max(0, Math.min(100, item.integrity))}%` }]}
+                />
+              </View>
+              <Text style={styles.trendIntegrity}>{item.integrity}%</Text>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.securityCard}>
+        <Text style={styles.sectionTitle}>Repartition du risque</Text>
+        <MiniBar label="LOW" value={stats.low} max={Math.max(1, stats.totalReports)} />
+        <MiniBar label="MEDIUM" value={stats.medium} max={Math.max(1, stats.totalReports)} />
+        <MiniBar label="HIGH" value={stats.high} max={Math.max(1, stats.totalReports)} />
+        <Text style={styles.securityText}>
+          Execution externe detectee : {stats.externalDetected > 0 ? "OUI" : "NON"}
+        </Text>
+      </View>
+
+      <View style={styles.actionsRow}>
+        <TouchableOpacity style={styles.primaryButton} onPress={loadReports}>
+          <Text style={styles.primaryButtonText}>
+            {loading ? "Chargement..." : "Actualiser"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <TextInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Rechercher id, adapter, capability, hash..."
+        placeholderTextColor="#64748b"
+        style={styles.search}
+      />
+
+      <View style={styles.filters}>
+        {(["ALL", "LOW", "MEDIUM", "HIGH"] as const).map((risk) => (
+          <TouchableOpacity
+            key={risk}
+            onPress={() => setRiskFilter(risk)}
+            style={[styles.filterButton, riskFilter === risk && styles.filterButtonActive]}
+          >
+            <Text
+              style={[
+                styles.filterButtonText,
+                riskFilter === risk && styles.filterButtonTextActive,
+              ]}
+            >
+              {risk === "ALL" ? "TOUS" : risk}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.resultCount}>{filtered.length} rapport(s)</Text>
+
+      {filtered.map((report, index) => {
+        const risk = normalizeRisk(report.riskLevel);
+        const integrity = getIntegrity(report);
+        return (
+          <TouchableOpacity
+            key={String(report.id ?? `${report.createdAt ?? "audit"}-${index}`)}
+            style={styles.reportCard}
+            onPress={() => setSelected(report)}
+          >
+            <View style={styles.reportTop}>
+              <Text style={styles.reportId}>{report.id ?? `Audit ${index + 1}`}</Text>
+              <Text style={styles.riskBadge}>{risk}</Text>
+            </View>
+            <Text style={styles.reportMeta}>
+              {report.createdAt ? new Date(report.createdAt).toLocaleString() : "Date inconnue"}
+            </Text>
+            <Text style={styles.reportMeta}>
+              Adapter : {report.adapterId ?? "-"} | Capability : {report.capability ?? "-"}
+            </Text>
+            <Text style={styles.reportMeta}>Integrite : {integrity}%</Text>
+          </TouchableOpacity>
+        );
+      })}
+
+      {!!selected && (
+        <View style={styles.detailCard}>
+          <Text style={styles.sectionTitle}>Detail du rapport</Text>
+          <Text style={styles.detailLine}>ID : {selected.id ?? "-"}</Text>
+          <Text style={styles.detailLine}>Risque : {normalizeRisk(selected.riskLevel)}</Text>
+          <Text style={styles.detailLine}>Integrite : {getIntegrity(selected)}%</Text>
+          <Text style={styles.detailLine}>
+            Execution externe : {selected.externalExecutionDetected ? "OUI" : "NON"}
+          </Text>
+          <Text style={styles.detailLine}>Adapter : {selected.adapterId ?? "-"}</Text>
+          <Text style={styles.detailLine}>Capability : {selected.capability ?? "-"}</Text>
+          {!!selected.summary && <Text style={styles.detailText}>{selected.summary}</Text>}
+          {!!selected.text && <Text style={styles.detailText}>{selected.text}</Text>}
+
+          <View style={styles.detailActions}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => shareReport(selected)}>
+              <Text style={styles.secondaryButtonText}>Partager</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => setSelected(null)}>
+              <Text style={styles.secondaryButtonText}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </ScrollView>
+  );
 }
 
-function DashboardCard({label,value}:{label:string;value:number|string}) { return <View style={styles.dashboardCard}><Text style={styles.dashboardValue}>{value}</Text><Text style={styles.dashboardLabel}>{label}</Text></View>; }
-function Stat({label,value}:{label:string;value:number}) { return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>; }
-function FilterButton({label,active,onPress}:{label:string;active:boolean;onPress:()=>void}) { return <TouchableOpacity onPress={onPress} style={[styles.filterButton,active&&styles.filterButtonActive]}><Text style={[styles.filterText,active&&styles.filterTextActive]}>{label}</Text></TouchableOpacity>; }
-
 const styles = StyleSheet.create({
-  container:{flex:1,paddingBottom:20}, title:{color:"#f8fafc",fontSize:22,fontWeight:"800",marginBottom:6}, subtitle:{color:"#94a3b8",fontSize:13,lineHeight:19,marginBottom:12},
-  dashboardGrid:{flexDirection:"row",flexWrap:"wrap",gap:8,marginBottom:10}, dashboardCard:{width:"31%",minWidth:90,flexGrow:1,backgroundColor:"#111827",borderWidth:1,borderColor:"#1e293b",borderRadius:14,paddingVertical:12,paddingHorizontal:8,alignItems:"center"}, dashboardValue:{color:"#f9a8d4",fontSize:20,fontWeight:"900"}, dashboardLabel:{color:"#94a3b8",fontSize:10,marginTop:3,textAlign:"center"},
-  securityCard:{backgroundColor:"#0f172a",borderWidth:1,borderColor:"#334155",borderRadius:14,padding:12,marginBottom:10},securityTitle:{color:"#f8fafc",fontWeight:"900",marginBottom:6},securityLine:{color:"#cbd5e1",fontSize:11,marginBottom:4},securityStatus:{color:"#86efac",fontSize:11,fontWeight:"900",marginTop:5},securityStatusWarning:{color:"#fbbf24"},
-  stats:{flexDirection:"row",gap:8,marginBottom:12},stat:{flex:1,backgroundColor:"#111827",borderWidth:1,borderColor:"#1e293b",borderRadius:14,padding:10,alignItems:"center"},statValue:{color:"#f9a8d4",fontSize:20,fontWeight:"900"},statLabel:{color:"#94a3b8",fontSize:10,marginTop:3},
-  searchInput:{backgroundColor:"#111827",borderWidth:1,borderColor:"#334155",borderRadius:12,color:"#f8fafc",paddingHorizontal:12,paddingVertical:10,marginBottom:10},filters:{flexDirection:"row",flexWrap:"wrap",gap:7,marginBottom:10},filterButton:{borderWidth:1,borderColor:"#334155",backgroundColor:"#111827",paddingVertical:7,paddingHorizontal:10,borderRadius:16},filterButtonActive:{backgroundColor:"#7c3aed",borderColor:"#a78bfa"},filterText:{color:"#94a3b8",fontSize:10,fontWeight:"900"},filterTextActive:{color:"#fff"},
-  toolbar:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:12},refreshButton:{backgroundColor:"#1d4ed8",borderRadius:12,paddingVertical:10,paddingHorizontal:14},resultCount:{color:"#94a3b8",fontSize:11,fontWeight:"800"},buttonText:{color:"#fff",fontWeight:"800",fontSize:12},
-  empty:{backgroundColor:"#111827",borderWidth:1,borderColor:"#1e293b",borderRadius:16,padding:18},emptyText:{color:"#94a3b8"},list:{paddingBottom:80},card:{backgroundColor:"#111827",borderWidth:1,borderColor:"#1e293b",borderRadius:16,padding:14,marginBottom:10},topRow:{flexDirection:"row",justifyContent:"space-between",gap:10,alignItems:"center",marginBottom:8},riskBadge:{backgroundColor:"#166534",borderRadius:20,paddingVertical:5,paddingHorizontal:10},riskMedium:{backgroundColor:"#92400e"},riskHigh:{backgroundColor:"#991b1b"},riskText:{color:"#fff",fontSize:10,fontWeight:"900"},date:{color:"#64748b",fontSize:10},reportId:{color:"#93c5fd",fontSize:12,fontWeight:"900",marginBottom:7},summary:{color:"#e2e8f0",fontSize:12,lineHeight:18,marginBottom:8},meta:{color:"#94a3b8",fontSize:10,marginBottom:3},openText:{color:"#f9a8d4",fontSize:11,fontWeight:"900",marginTop:10},
-  detailCard:{backgroundColor:"#0f172a",borderWidth:1,borderColor:"#7c3aed",borderRadius:16,padding:14,marginBottom:12},detailHeader:{flexDirection:"row",justifyContent:"space-between",marginBottom:8},detailTitle:{color:"#c4b5fd",fontSize:14,fontWeight:"900"},closeText:{color:"#f9a8d4",fontWeight:"900"},reportText:{color:"#e2e8f0",fontSize:11,lineHeight:17},exportButton:{alignSelf:"flex-start",backgroundColor:"#0f766e",borderRadius:12,paddingVertical:10,paddingHorizontal:14,marginTop:12},exportNotice:{color:"#86efac",fontSize:10,marginTop:8,fontWeight:"800"},smallExportButton:{alignSelf:"flex-start",marginTop:10,borderWidth:1,borderColor:"#0f766e",borderRadius:10,paddingVertical:7,paddingHorizontal:10},smallExportText:{color:"#5eead4",fontSize:10,fontWeight:"900"},sectionTitle:{color:"#f8fafc",fontSize:13,fontWeight:"900",marginTop:14,marginBottom:8},entryCard:{backgroundColor:"#111827",borderRadius:12,padding:10,marginBottom:8},entryAdapter:{color:"#93c5fd",fontWeight:"900",marginBottom:5},entryText:{color:"#cbd5e1",fontSize:10,marginBottom:3},hash:{color:"#f9a8d4",fontSize:10,fontWeight:"800",marginTop:5},safeNotice:{color:"#86efac",fontSize:10,marginTop:6}
+  container: {
+    padding: 16,
+    paddingBottom: 80,
+    backgroundColor: "#070b16",
+  },
+  title: {
+    color: "#f8fafc",
+    fontSize: 28,
+    fontWeight: "900",
+    marginBottom: 6,
+  },
+  subtitle: {
+    color: "#94a3b8",
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 16,
+  },
+  healthCard: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+  },
+  healthHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  healthCaption: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  healthScore: {
+    color: "#f9a8d4",
+    fontSize: 36,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  healthBadge: {
+    backgroundColor: "#1e293b",
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  healthBadgeText: {
+    color: "#f8fafc",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  healthText: {
+    color: "#cbd5e1",
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 12,
+  },
+  healthTrack: {
+    height: 10,
+    backgroundColor: "#1e293b",
+    borderRadius: 999,
+    overflow: "hidden",
+    marginTop: 12,
+  },
+  healthFill: {
+    height: "100%",
+    backgroundColor: "#f472b6",
+    borderRadius: 999,
+  },
+  dashboardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 14,
+  },
+  dashboardCard: {
+    width: "31%",
+    minWidth: 98,
+    flexGrow: 1,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    alignItems: "center",
+  },
+  dashboardValue: {
+    color: "#f9a8d4",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+  dashboardLabel: {
+    color: "#cbd5e1",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  dashboardNote: {
+    color: "#64748b",
+    fontSize: 10,
+    marginTop: 3,
+  },
+  securityCard: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    color: "#f8fafc",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  sectionHint: {
+    color: "#94a3b8",
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  securityText: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    marginTop: 8,
+  },
+  trendRow: {
+    marginBottom: 12,
+  },
+  trendTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 5,
+  },
+  trendIndex: {
+    color: "#f9a8d4",
+    fontWeight: "900",
+    width: 28,
+  },
+  trendRisk: {
+    color: "#f8fafc",
+    fontWeight: "900",
+    width: 64,
+  },
+  trendDate: {
+    color: "#64748b",
+    fontSize: 10,
+    flex: 1,
+    textAlign: "right",
+  },
+  trendTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#1e293b",
+    overflow: "hidden",
+  },
+  trendFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#60a5fa",
+  },
+  trendIntegrity: {
+    color: "#94a3b8",
+    fontSize: 10,
+    marginTop: 3,
+    textAlign: "right",
+  },
+  barRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 5,
+  },
+  barLabel: {
+    color: "#cbd5e1",
+    width: 62,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  barTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: "#1e293b",
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    backgroundColor: "#a78bfa",
+    borderRadius: 999,
+  },
+  barValue: {
+    color: "#f8fafc",
+    width: 28,
+    textAlign: "right",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  readinessCard: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#475569",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  readinessRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1e293b",
+  },
+  readinessLabel: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  readinessValue: {
+    color: "#f9a8d4",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  readinessOk: {
+    color: "#86efac",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 12,
+    fontWeight: "800",
+  },
+  blockerBox: {
+    marginTop: 12,
+    backgroundColor: "#0f172a",
+    borderRadius: 12,
+    padding: 10,
+  },
+  blockerTitle: {
+    color: "#fbbf24",
+    fontSize: 12,
+    fontWeight: "900",
+    marginBottom: 5,
+  },
+  blockerText: {
+    color: "#cbd5e1",
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  readinessSafety: {
+    color: "#94a3b8",
+    fontSize: 10,
+    lineHeight: 16,
+    marginTop: 12,
+  },
+  calendarConnectorCard: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  calendarConnectorValue: {
+    color: "#93c5fd",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  calendarConnectorSafety: {
+    color: "#fbbf24",
+    fontSize: 10,
+    lineHeight: 16,
+    marginTop: 12,
+    fontWeight: "700",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 12,
+  },
+  primaryButton: {
+    backgroundColor: "#2563eb",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontWeight: "900",
+  },
+  search: {
+    backgroundColor: "#111827",
+    color: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  filters: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterButton: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  filterButtonActive: {
+    backgroundColor: "#be185d",
+    borderColor: "#f472b6",
+  },
+  filterButtonText: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  filterButtonTextActive: {
+    color: "#fff",
+  },
+  resultCount: {
+    color: "#64748b",
+    fontSize: 11,
+    marginBottom: 8,
+  },
+  reportCard: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+  },
+  reportTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  reportId: {
+    color: "#f8fafc",
+    fontSize: 15,
+    fontWeight: "900",
+    flex: 1,
+  },
+  riskBadge: {
+    color: "#f9a8d4",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  reportMeta: {
+    color: "#94a3b8",
+    fontSize: 11,
+    marginTop: 5,
+  },
+  detailCard: {
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#475569",
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 4,
+  },
+  detailLine: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    marginBottom: 5,
+  },
+  detailText: {
+    color: "#e2e8f0",
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  detailActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  secondaryButton: {
+    backgroundColor: "#334155",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  secondaryButtonText: {
+    color: "#f8fafc",
+    fontWeight: "800",
+    fontSize: 12,
+  },
+  empty: {
+    color: "#64748b",
+    fontSize: 12,
+  },
 });
