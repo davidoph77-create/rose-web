@@ -606,7 +606,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-020 - Execution Audit & Safety Policy
+  // Rose V10-021 - Execution Queue & Dry Run Review
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -635,14 +635,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-020",
+        appVersion: "V10-021",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-020] mode=${result.mode}`,
+      `[Rose V10-021] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -675,7 +675,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-020 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / safety=audit`
+        `V10-021 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / queue=dry-run`
       );
       parler(summary.text);
       setMessage("");

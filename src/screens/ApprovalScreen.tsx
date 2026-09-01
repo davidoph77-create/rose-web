@@ -22,8 +22,8 @@ import {
   syncApprovalExecutionBridge,
 } from "../core/v10/approval_execution_bridge";
 import {
-  executeAuditedControlledDecision,
-} from "../core/v10/execution_audit";
+  processDecisionToExecutionQueue,
+} from "../core/v10/execution_queue";
 
 export default function ApprovalScreen() {
   const [
@@ -81,7 +81,7 @@ export default function ApprovalScreen() {
 
     if (decision) {
       const result =
-        await executeAuditedControlledDecision(
+        await processDecisionToExecutionQueue(
           decision
         );
 
@@ -141,8 +141,8 @@ export default function ApprovalScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        V10-020 ajoute une Safety Policy et
-        un journal d'audit avant l'exécuteur.
+        V10-021 ajoute une file d'exécution
+        simulée et une étape Dry Run Review.
         Toute action externe réelle reste
         désactivée.
       </Text>
@@ -150,7 +150,7 @@ export default function ApprovalScreen() {
       {executionMessage ? (
         <View style={styles.executionCard}>
           <Text style={styles.executionTitle}>
-            Execution Safety Policy
+            Execution Queue / Dry Run
           </Text>
           <Text style={styles.executionText}>
             {executionMessage}
@@ -267,10 +267,10 @@ export default function ApprovalScreen() {
 
               {item.status !== "pending" && (
                 <Text style={styles.safeNotice}>
-                  Décision auditée par la
-                  Safety Policy V10.
-                  Exécution externe réelle
-                  toujours désactivée.
+                  Décision auditée et routée
+                  vers la file d'exécution
+                  simulée. Aucune action externe
+                  réelle n'a été exécutée.
                 </Text>
               )}
             </View>
