@@ -369,6 +369,35 @@ export default function AuditHistoryScreen() {
           Next step: inject the real calendar provider behind this safety gate.
         </Text>
       </View>
+      <View style={styles.webConnectorCard}>
+        <Text style={styles.sectionTitle}>Web Controlled Connector</Text>
+        <Text style={styles.sectionHint}>
+          The Web execution path is now connected to Rose V10 safety controls.
+          V10-038 validates search/open/fetch requests in controlled dry-run only.
+        </Text>
+
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Connector</Text>
+          <Text style={styles.webConnectorValue}>CONNECTED / DRY-RUN</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Human approval</Text>
+          <Text style={styles.webConnectorValue}>REQUIRED</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Release Gate</Text>
+          <Text style={styles.webConnectorValue}>REQUIRED</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Evidence integrity</Text>
+          <Text style={styles.webConnectorValue}>REQUIRED</Text>
+        </View>
+
+        <Text style={styles.webConnectorSafety}>
+          Real Web request: DISABLED in V10-038{"\n"}
+          Calendar connector remains controlled. Real external execution is still blocked.
+        </Text>
+      </View>
       <View style={styles.dashboardGrid}>
         <DashboardCard label="Rapports" value={stats.totalReports} />
         <DashboardCard label="Preuves" value={stats.totalEvidence} />
@@ -785,6 +814,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   calendarConnectorSafety: {
+    color: "#fbbf24",
+    fontSize: 10,
+    lineHeight: 16,
+    marginTop: 12,
+    fontWeight: "700",
+  },
+  webConnectorCard: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#7c3aed",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  webConnectorValue: {
+    color: "#c4b5fd",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  webConnectorSafety: {
     color: "#fbbf24",
     fontSize: 10,
     lineHeight: 16,

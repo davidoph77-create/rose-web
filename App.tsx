@@ -612,7 +612,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-037 - Calendar Controlled Connector
+  // Rose V10-038 - Web Controlled Connector
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -641,14 +641,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-037",
+        appVersion: "V10-038",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-037] mode=${result.mode}`,
+      `[Rose V10-038] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -681,7 +681,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-037 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / calendar=controlled`
+        `V10-038 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / web=controlled`
       );
       parler(summary.text);
       setMessage("");
