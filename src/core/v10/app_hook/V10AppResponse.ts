@@ -1,6 +1,10 @@
 import {
   buildCognitiveExecution,
 } from "../execution_pipeline";
+import {
+  orchestrateExecution,
+  formatMultiAgentChain,
+} from "../orchestrator";
 
 export type RoseV10AppSummary = {
   text: string;
@@ -10,6 +14,8 @@ export type RoseV10AppSummary = {
   requiresValidation: boolean;
   suggestedAction?: string;
   executionSummary?: string;
+  orchestratorSummary?: string;
+  agentChain?: string;
 };
 
 export function formatRoseV10AppResponse(
@@ -22,7 +28,11 @@ export function formatRoseV10AppResponse(
   const execution =
     buildCognitiveExecution(value);
 
-  const intent = execution.intent;
+  const orchestrated =
+    orchestrateExecution(execution);
+
+  const intent =
+    orchestrated.intent;
 
   const confidence =
     typeof decision.confidence === "number"
@@ -30,34 +40,21 @@ export function formatRoseV10AppResponse(
       : undefined;
 
   const selectedAgents =
-    execution.selectedAgents;
+    orchestrated.selectedAgents;
 
   const requiresValidation =
-    execution.requiresValidation;
+    orchestrated.requiresValidation;
 
-  const intentLabel =
-    intentLabelFr(intent);
-
-  const agentsText =
-    selectedAgents.length > 0
-      ? selectedAgents.join(", ")
-      : "aucun agent spécialisé";
+  const agentChain =
+    formatMultiAgentChain(orchestrated);
 
   const confidenceText =
     typeof confidence === "number"
       ? ` Confiance : ${Math.round(confidence * 100)} %.`
       : "";
 
-  const stepsText =
-    execution.steps
-      .map(
-        (step, index) =>
-          `${index + 1}. ${step.title} — ${step.output}`
-      )
-      .join(" ");
-
   const validationText =
-    execution.externalActionsBlocked
+    requiresValidation
       ? " Les actions externes restent bloquées jusqu’à validation."
       : " Aucune action externe automatique n’a été exécutée.";
 
@@ -66,12 +63,12 @@ export function formatRoseV10AppResponse(
 
   return {
     text:
-      `Rose V10 a exécuté son pipeline cognitif. ` +
-      `Intention : ${intentLabel}. ` +
-      `Agents : ${agentsText}.` +
+      `Rose V10 a orchestré ses agents. ` +
+      `Intention : ${intentLabelFr(intent)}. ` +
+      `Agents : ${selectedAgents.join(", ") || "cognitive-agent"}.` +
       confidenceText +
-      ` ${execution.summary} ` +
-      stepsText +
+      ` ${orchestrated.summary} ` +
+      `Chaîne : ${agentChain}.` +
       validationText +
       (suggestedAction
         ? ` Proposition : ${suggestedAction}`
@@ -83,6 +80,9 @@ export function formatRoseV10AppResponse(
     suggestedAction,
     executionSummary:
       execution.summary,
+    orchestratorSummary:
+      orchestrated.summary,
+    agentChain,
   };
 }
 
@@ -91,19 +91,19 @@ function buildSuggestedAction(
 ): string | undefined {
   switch (intent) {
     case "planning":
-      return "je peux maintenant transformer ce plan préparé en étapes concrètes.";
+      return "je peux enchaîner mémoire, objectif et planification pour construire un plan plus complet.";
     case "goal":
-      return "je peux préparer l’objectif et ses sous-objectifs.";
+      return "je peux relier l’objectif à un plan d’actions et à son suivi.";
     case "calendar":
-      return "je peux préparer les détails du rendez-vous avant validation.";
+      return "je peux préparer la chaîne planification → agenda, puis attendre ta validation.";
     case "business":
-      return "je peux préparer une action entreprise prioritaire.";
+      return "je peux combiner mémoire entreprise, analyse et planification.";
     case "web":
-      return "je peux préparer la recherche avant validation.";
+      return "je peux préparer la recherche, puis attendre ta validation avant toute action externe.";
     case "memory":
-      return "je peux relier cette information aux souvenirs utiles.";
+      return "je peux relier cette information aux souvenirs utiles puis proposer la prochaine étape.";
     default:
-      return "je peux poursuivre avec le module V10 approprié.";
+      return "je peux poursuivre avec plusieurs agents V10 coordonnés.";
   }
 }
 
