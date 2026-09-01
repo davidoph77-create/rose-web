@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -16,11 +17,15 @@ import type {
   AuditReport,
 } from "../core/v10/audit_report";
 
+type RiskFilter = "all" | "low" | "medium" | "high";
+
 export default function AuditHistoryScreen() {
   const [reports, setReports] = useState<AuditReport[]>([]);
   const [selected, setSelected] = useState<AuditReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastExportedId, setLastExportedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [riskFilter, setRiskFilter] = useState<RiskFilter>("all");
 
   const charger = useCallback(async () => {
     setLoading(true);
@@ -28,10 +33,7 @@ export default function AuditHistoryScreen() {
       const data = await listAuditReports();
       setReports(data);
 
-      if (
-        selected &&
-        !data.find((item) => item.id === selected.id)
-      ) {
+      if (selected && !data.find((item) => item.id === selected.id)) {
         setSelected(null);
       }
     } finally {
@@ -54,6 +56,37 @@ export default function AuditHistoryScreen() {
     setLastExportedId(report.id);
   };
 
+  const filteredReports = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+
+    return reports.filter((report) => {
+      const matchesRisk =
+        riskFilter === "all" || report.overallRisk === riskFilter;
+
+      if (!matchesRisk) return false;
+      if (!normalized) return true;
+
+      const haystack = [
+        report.id,
+        report.summary,
+        report.overallRisk,
+        ...report.entries.map((entry) =>
+          [
+            entry.adapterId,
+            entry.capability,
+            entry.verificationStatus,
+            entry.integrityHash,
+            entry.risk,
+          ].join(" ")
+        ),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalized);
+    });
+  }, [reports, query, riskFilter]);
+
   const low = reports.filter((r) => r.overallRisk === "low").length;
   const medium = reports.filter((r) => r.overallRisk === "medium").length;
   const high = reports.filter((r) => r.overallRisk === "high").length;
@@ -63,9 +96,9 @@ export default function AuditHistoryScreen() {
       <Text style={styles.title}>Historique Audit V10</Text>
 
       <Text style={styles.subtitle}>
-        V10-032 ajoute l'export sécurisé des rapports d'audit.
-        Un rapport peut maintenant être partagé sous forme de snapshot texte,
-        sans déclencher aucune action externe de Rose.
+        V10-033 ajoute la recherche et les filtres d'audit.
+        Tu peux retrouver rapidement un rapport par identifiant, adaptateur,
+        capacité, hash ou niveau de risque.
       </Text>
 
       <View style={styles.stats}>
@@ -74,14 +107,53 @@ export default function AuditHistoryScreen() {
         <Stat label="HIGH" value={high} />
       </View>
 
-      <TouchableOpacity
-        style={styles.refreshButton}
-        onPress={charger}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? "Chargement..." : "Actualiser l'historique"}
+      <TextInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Rechercher id, adapter, hash..."
+        placeholderTextColor="#64748b"
+        style={styles.searchInput}
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+
+      <View style={styles.filters}>
+        <FilterButton
+          label="TOUS"
+          active={riskFilter === "all"}
+          onPress={() => setRiskFilter("all")}
+        />
+        <FilterButton
+          label="LOW"
+          active={riskFilter === "low"}
+          onPress={() => setRiskFilter("low")}
+        />
+        <FilterButton
+          label="MEDIUM"
+          active={riskFilter === "medium"}
+          onPress={() => setRiskFilter("medium")}
+        />
+        <FilterButton
+          label="HIGH"
+          active={riskFilter === "high"}
+          onPress={() => setRiskFilter("high")}
+        />
+      </View>
+
+      <View style={styles.toolbar}>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={charger}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? "Chargement..." : "Actualiser"}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={styles.resultCount}>
+          {filteredReports.length} résultat(s)
         </Text>
-      </TouchableOpacity>
+      </View>
 
       {selected ? (
         <View style={styles.detailCard}>
@@ -127,10 +199,10 @@ export default function AuditHistoryScreen() {
         </View>
       ) : null}
 
-      {reports.length === 0 ? (
+      {filteredReports.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>
-            Aucun rapport d'audit enregistré.
+            Aucun rapport ne correspond à la recherche.
           </Text>
         </View>
       ) : (
@@ -138,7 +210,7 @@ export default function AuditHistoryScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
         >
-          {reports.map((report) => (
+          {filteredReports.map((report) => (
             <View key={report.id} style={styles.card}>
               <TouchableOpacity onPress={() => setSelected(report)}>
                 <View style={styles.topRow}>
@@ -204,6 +276,35 @@ function Stat({
   );
 }
 
+function FilterButton({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.filterButton,
+        active && styles.filterButtonActive,
+      ]}
+    >
+      <Text
+        style={[
+          styles.filterText,
+          active && styles.filterTextActive,
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, paddingBottom: 20 },
   title: { color: "#f8fafc", fontSize: 22, fontWeight: "800", marginBottom: 6 },
@@ -222,13 +323,64 @@ const styles = StyleSheet.create({
   statValue: { color: "#f9a8d4", fontSize: 20, fontWeight: "900" },
   statLabel: { color: "#94a3b8", fontSize: 10, marginTop: 3 },
 
+  searchInput: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 12,
+    color: "#f8fafc",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+
+  filters: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    marginBottom: 10,
+  },
+
+  filterButton: {
+    borderWidth: 1,
+    borderColor: "#334155",
+    backgroundColor: "#111827",
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+  },
+
+  filterButtonActive: {
+    backgroundColor: "#7c3aed",
+    borderColor: "#a78bfa",
+  },
+
+  filterText: {
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+
+  filterTextActive: { color: "#ffffff" },
+
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+
   refreshButton: {
-    alignSelf: "flex-start",
     backgroundColor: "#1d4ed8",
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 12,
+  },
+
+  resultCount: {
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: "800",
   },
 
   buttonText: { color: "#ffffff", fontWeight: "800", fontSize: 12 },
