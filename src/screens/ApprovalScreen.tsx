@@ -22,8 +22,8 @@ import {
   syncApprovalExecutionBridge,
 } from "../core/v10/approval_execution_bridge";
 import {
-  processApprovedDecision,
-} from "../core/v10/controlled_executor";
+  executeAuditedControlledDecision,
+} from "../core/v10/execution_audit";
 
 export default function ApprovalScreen() {
   const [
@@ -79,31 +79,14 @@ export default function ApprovalScreen() {
 
     await syncApprovalExecutionBridge();
 
-    if (
-      decision &&
-      status === "approved"
-    ) {
-      const execution =
-        await processApprovedDecision(
+    if (decision) {
+      const result =
+        await executeAuditedControlledDecision(
           decision
         );
 
       setExecutionMessage(
-        execution.summary
-      );
-    }
-
-    if (
-      decision &&
-      status === "rejected"
-    ) {
-      const execution =
-        await processApprovedDecision(
-          decision
-        );
-
-      setExecutionMessage(
-        execution.summary
+        result.summary
       );
     }
 
@@ -158,16 +141,16 @@ export default function ApprovalScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        V10-019 ajoute un exécuteur contrôlé.
-        Une décision approuvée est transmise
-        au pipeline, mais toute action externe
-        réelle reste désactivée.
+        V10-020 ajoute une Safety Policy et
+        un journal d'audit avant l'exécuteur.
+        Toute action externe réelle reste
+        désactivée.
       </Text>
 
       {executionMessage ? (
         <View style={styles.executionCard}>
           <Text style={styles.executionTitle}>
-            Controlled Action Executor
+            Execution Safety Policy
           </Text>
           <Text style={styles.executionText}>
             {executionMessage}
@@ -284,10 +267,10 @@ export default function ApprovalScreen() {
 
               {item.status !== "pending" && (
                 <Text style={styles.safeNotice}>
-                  Décision synchronisée avec
-                  le pipeline V10. Exécution
-                  externe réelle toujours
-                  désactivée.
+                  Décision auditée par la
+                  Safety Policy V10.
+                  Exécution externe réelle
+                  toujours désactivée.
                 </Text>
               )}
             </View>
