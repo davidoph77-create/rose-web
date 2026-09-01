@@ -1,0 +1,300 @@
+import RoseScreen from "./src/screens/RoseScreen";
+import MemoireScreen from "./src/screens/MemoireScreen";
+import ObjectifsScreen from "./src/screens/ObjectifsScreen";
+import GoalsScreen from "./src/screens/GoalsScreen";
+import WebScreen from "./src/screens/WebScreen";
+import DecisionScreen from "./src/screens/DecisionScreen";
+import AgendaScreen from "./src/screens/AgendaScreen";
+import EntrepriseScreen from "./src/screens/EntrepriseScreen";
+import ApprentissageScreen from "./src/screens/ApprentissageScreen";
+import CerveauScreen from "./src/screens/CerveauScreen";
+import CoachScreen from "./src/screens/CoachScreen";
+import AutonomieScreen from "./src/screens/AutonomieScreen";
+import TaskScreen from "./src/screens/TaskScreen";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  StatusBar,
+} from "react-native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Speech from "expo-speech";
+import { supabase } from "./lib/supabase";
+
+import {
+  RoseTask,
+  suggestTasksFromMemory,
+} from "./src/agents/taskEngine";
+
+import {
+  RoseGoal,
+  suggestGoalsFromMemory,
+  updateGoalProgress,
+  deleteGoal,
+} from "./src/agents/goalEngine";
+
+import {
+  WebSearchRequest,
+  suggestWebQueriesFromMemory,
+} from "./src/agents/webEngine";
+
+import {
+  RoseDecision,
+  suggestDecisionsFromMemory,
+} from "./src/agents/decisionEngine";
+
+import {
+  RoseCalendarEvent,
+  suggestCalendarEventsFromMemory,
+} from "./src/agents/calendarEngine";
+
+type Tab =
+  | "rose"
+  | "memoire"
+  | "objectifs"
+  | "goals"
+  | "web"
+  | "decisions"
+  | "agenda"
+  | "entreprise"
+  | "apprentissage"
+  | "cerveau"
+  | "coach"
+  | "autonomie"
+  | "tasks";
+
+type Memoire = {
+  id: number;
+  texte: string;
+  categorie: string;
+  importance: "Normale" | "Importante" | "Longue durée";
+  date: string;
+};
+
+type Objectif = {
+  id: number;
+  titre: string;
+  cible: string;
+  progression: number;
+  statut: string;
+};
+
+const STORAGE_KEY = "rose_agent_system_v74";
+const CLOUD_ID = "rose_agent_system_v74_david";
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>("rose");
+
+  const [message, setMessage] = useState("");
+  const [cloudStatus, setCloudStatus] = useState("Cloud en attente");
+
+  const [roseTasks, setRoseTasks] = useState<RoseTask[]>([]);
+  const [roseGoals, setRoseGoals] = useState<RoseGoal[]>([]);
+  const [webRequests, setWebRequests] = useState<WebSearchRequest[]>([]);
+  const [roseDecisions, setRoseDecisions] = useState<RoseDecision[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<RoseCalendarEvent[]>([]);
+
+  const [roseReponse, setRoseReponse] = useState(
+    "Bonjour David. Je suis Rose Agent System V7.4 avec moteurs Tâches, Objectifs IA, Web, Décisions et Agenda."
+  );
+    const [resumeRose, setResumeRose] = useState(
+    "Rose n’a pas encore généré de résumé."
+  );
+
+  const [prioritesRose, setPrioritesRose] = useState<string[]>([
+    "Développer Rose IA",
+    "Atteindre 8000 € par mois",
+  ]);
+
+  const [conseilsRose, setConseilsRose] = useState<string[]>([
+    "Utilise les onglets Tâches, Objectifs IA, Web, Décisions et Agenda.",
+  ]);
+
+  const [objectifPrincipal, setObjectifPrincipal] = useState(
+    "Atteindre 8000 € par mois"
+  );
+
+  const [profilDavid, setProfilDavid] = useState(
+    "David travaille dans la couverture/charpente, développe Rose IA et vise une progression personnelle et professionnelle."
+  );
+
+  const [memoireLongueDuree, setMemoireLongueDuree] = useState<string[]>([
+    "David développe Rose IA comme assistante personnelle évolutive.",
+  ]);
+
+  const [journalRose, setJournalRose] = useState<string[]>([
+    "Rose Agent System V7.4 initialisé avec Calendar Engine.",
+  ]);
+
+  const [planActionRose, setPlanActionRose] = useState<string[]>([
+    "Suivre les missions générées par Rose.",
+    "Suivre les objectifs IA.",
+    "Planifier les événements importants.",
+  ]);
+
+  const [habitudesRose, setHabitudesRose] = useState<string[]>([
+    "Rose commence à observer les habitudes de David.",
+  ]);
+
+  const [coachEntreprise, setCoachEntreprise] = useState(
+    "Rose attend plus d’informations pour générer une analyse entreprise."
+  );
+
+  const [actionsRecommandees, setActionsRecommandees] = useState<string[]>([
+    "Générer les missions Rose.",
+    "Générer les objectifs IA.",
+    "Préparer les événements agenda.",
+  ]);
+    const [syntheseHebdo, setSyntheseHebdo] = useState(
+    "Aucune synthèse hebdomadaire générée."
+  );
+
+  const [agentWebRose, setAgentWebRose] = useState<string[]>([
+    "Web Engine préparé : Rose prépare les recherches, David valide.",
+  ]);
+
+  const [agendaRose, setAgendaRose] = useState<string[]>([
+    "Agenda Engine préparé : Rose prépare les événements, David valide.",
+  ]);
+
+  const [autonomieRose, setAutonomieRose] = useState<string[]>([
+    "Autonomie contrôlée activée : Rose propose, David valide.",
+  ]);
+
+  const [memoires, setMemoires] = useState<Memoire[]>([
+    {
+      id: 1,
+      texte: "David travaille dans la couverture et la charpente.",
+      categorie: "Entreprise",
+      importance: "Longue durée",
+      date: new Date().toLocaleDateString(),
+    },
+    {
+      id: 2,
+      texte: "Objectif personnel : viser 8000 € par mois.",
+      categorie: "Objectif",
+      importance: "Longue durée",
+      date: new Date().toLocaleDateString(),
+    },
+  ]);
+
+  const [objectifs, setObjectifs] = useState<Objectif[]>([
+    {
+      id: 1,
+      titre: "Atteindre 8000 € par mois",
+      cible: "8000 €/mois",
+      progression: 25,
+      statut: "En cours",
+    },
+    {
+      id: 2,
+      titre: "Développer Rose IA",
+      cible: "IA personnelle évolutive",
+      progression: 75,
+      statut: "En cours",
+    },
+  ]);
+
+  const parler = (texte: string) => {
+    if (!texte.trim()) return;
+
+    Speech.stop();
+    Speech.speak(texte, {
+      language: "fr-FR",
+      pitch: 1.05,
+      rate: 0.92,
+    });
+  };
+
+  const ajouterJournal = (texte: string) => {
+    const ligne = `${new Date().toLocaleDateString()} - ${texte}`;
+    setJournalRose((prev) => [ligne, ...prev.slice(0, 19)]);
+  };
+    useEffect(() => {
+    const chargerLocal = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+
+        if (saved) {
+          const data = JSON.parse(saved);
+
+          if (data.memoires) setMemoires(data.memoires);
+          if (data.objectifs) setObjectifs(data.objectifs);
+          if (data.roseTasks) setRoseTasks(data.roseTasks);
+          if (data.roseGoals) setRoseGoals(data.roseGoals);
+          if (data.webRequests) setWebRequests(data.webRequests);
+          if (data.roseDecisions) setRoseDecisions(data.roseDecisions);
+          if (data.calendarEvents) setCalendarEvents(data.calendarEvents);
+          if (data.roseReponse) setRoseReponse(data.roseReponse);
+          if (data.resumeRose) setResumeRose(data.resumeRose);
+          if (data.prioritesRose) setPrioritesRose(data.prioritesRose);
+          if (data.conseilsRose) setConseilsRose(data.conseilsRose);
+          if (data.objectifPrincipal) setObjectifPrincipal(data.objectifPrincipal);
+          if (data.profilDavid) setProfilDavid(data.profilDavid);
+          if (data.memoireLongueDuree) setMemoireLongueDuree(data.memoireLongueDuree);
+          if (data.journalRose) setJournalRose(data.journalRose);
+          if (data.planActionRose) setPlanActionRose(data.planActionRose);
+          if (data.habitudesRose) setHabitudesRose(data.habitudesRose);
+          if (data.coachEntreprise) setCoachEntreprise(data.coachEntreprise);
+          if (data.actionsRecommandees) setActionsRecommandees(data.actionsRecommandees);
+          if (data.syntheseHebdo) setSyntheseHebdo(data.syntheseHebdo);
+          if (data.agentWebRose) setAgentWebRose(data.agentWebRose);
+          if (data.agendaRose) setAgendaRose(data.agendaRose);
+          if (data.autonomieRose) setAutonomieRose(data.autonomieRose);
+        }
+      } catch (error) {
+        console.log("Erreur chargement local V7.4:", error);
+      }
+    };
+
+    chargerLocal();
+  }, []);
+    useEffect(() => {
+    const chargerCloud = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("rose_core")
+          .select("data")
+          .eq("id", CLOUD_ID)
+          .single();
+
+        if (error) {
+          setCloudStatus("Cloud vide ou erreur");
+          return;
+        }
+
+        if (data?.data) {
+          if (data.data.memoires) setMemoires(data.data.memoires);
+          if (data.data.objectifs) setObjectifs(data.data.objectifs);
+          if (data.data.roseTasks) setRoseTasks(data.data.roseTasks);
+          if (data.data.roseGoals) setRoseGoals(data.data.roseGoals);
+          if (data.data.webRequests) setWebRequests(data.data.webRequests);
+          if (data.data.roseDecisions) setRoseDecisions(data.data.roseDecisions);
+          if (data.data.calendarEvents) setCalendarEvents(data.data.calendarEvents);
+          if (data.data.roseReponse) setRoseReponse(data.data.roseReponse);
+          if (data.data.resumeRose) setResumeRose(data.data.resumeRose);
+          if (data.data.prioritesRose) setPrioritesRose(data.data.prioritesRose);
+          if (data.data.conseilsRose) setConseilsRose(data.data.conseilsRose);
+          if (data.data.objectifPrincipal) setObjectifPrincipal(data.data.objectifPrincipal);
+          if (data.data.profilDavid) setProfilDavid(data.data.profilDavid);
+          if (data.data.memoireLongueDuree) setMemoireLongueDuree(data.data.memoireLongueDuree);
+          if (data.data.journalRose) setJournalRose(data.data.journalRose);
+          if (data.data.planActionRose) setPlanActionRose(data.data.planActionRose);
+          if (data.data.habitudesRose) setHabitudesRose(data.data.habitudesRose);
+          if (data.data.coachEntreprise) setCoachEntreprise(data.data.coachEntreprise);
+          if (data.data.actionsRecommandees) setActionsRecommandees(data.data.actionsRecommandees);
+          if (data.data.syntheseHebdo) setSyntheseHebdo(data.data.syntheseHebdo);
+          if (data.data.agentWebRose) setAgentWebRose(data.data.agentWebRose);
+          if (data.data.agendaRose) setAgendaRose(data.data.agendaRose);
+          if (data.data.autonomieRose) setAutonomieRose(data.data.autonomieRose);
+
+          setCloudStatus("Cloud chargé");
+        }
+      } catch (error) {
+        setCloudStatus("Erreur cloud");

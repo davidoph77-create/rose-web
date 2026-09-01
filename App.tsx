@@ -1,4 +1,5 @@
-import RoseScreen from "./src/screens/RoseScreen";
+﻿import RoseScreen from "./src/screens/RoseScreen";
+import { createRoseAppHook } from "./src/core/v10/app_hook";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -602,7 +603,38 @@ export default function App() {
     }
   };
 
-  const analyserMessage = () => {
+  // Rose V10-012B - Safe App Hook
+  // V10 reste desactive par defaut dans RoseAppFeatureFlag.ts.
+  // Le comportement V7.4 actuel reste le chemin de secours.
+  const roseAppHook = useMemo(
+    () =>
+      createRoseAppHook(async () => {
+        analyserMessageLegacy();
+        return { handledBy: "legacy" };
+      }),
+    [message]
+  );
+
+  const analyserMessage = async () => {
+    if (!message.trim()) return;
+
+    const messageEnvoye = message;
+
+    const result = await roseAppHook.run({
+      message: messageEnvoye,
+      metadata: {
+        source: "RoseScreen",
+        appVersion: "V10-012B",
+        autonomyEnabled: false,
+      },
+    });
+
+    console.log(
+      `[Rose V10-012B] mode=${result.mode}`,
+      result.v10Error ? `fallback=${result.v10Error}` : ""
+    );
+  };
+  const analyserMessageLegacy = () => {
     if (!message.trim()) return;
 
     const categorie = detecterCategorie(message);

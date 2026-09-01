@@ -1,0 +1,300 @@
+      setMemoireLongueDuree((prev) => [texte, ...prev.slice(0, 29)]);
+    }
+  };
+
+  const analyserMessage = () => {
+    if (!message.trim()) return;
+
+    const categorie = detecterCategorie(message);
+    const importance = detecterImportance(message);
+
+    ajouterMemoire(message, categorie, importance);
+
+    let reponse = "J’ai mémorisé cette information.";
+
+    if (categorie === "Objectif") reponse = "J’ai détecté un objectif important.";
+    if (categorie === "Entreprise") reponse = "J’ai détecté une information liée à ton entreprise.";
+    if (categorie === "Web") reponse = "J’ai détecté une demande liée au web.";
+    if (categorie === "Agenda") reponse = "J’ai détecté une information liée à l’agenda.";
+    if (categorie === "Rose IA") reponse = "Je comprends. Tu veux me faire évoluer progressivement.";
+
+    setRoseReponse(reponse);
+    ajouterJournal(`Mémoire ajoutée : ${categorie} / ${importance}`);
+    parler(reponse);
+    setMessage("");
+  };
+    const genererResumeRose = () => {
+    const importantes = memoires.filter((m) => m.importance !== "Normale");
+
+    const resume = `
+Rose possède ${memoires.length} souvenirs.
+${importantes.length} sont importants ou longue durée.
+Objectif principal : ${objectifPrincipal}.
+Missions actives : ${roseTasks.filter((t) => t.status !== "done").length}.
+Objectifs IA : ${roseGoals.length}.
+Recherches Web préparées : ${webRequests.length}.
+Décisions proposées : ${roseDecisions.length}.
+Événements Agenda : ${calendarEvents.length}.
+`;
+
+    setResumeRose(resume);
+    setRoseReponse("Résumé généré.");
+    ajouterJournal("Résumé V7.4 généré.");
+    parler("Résumé généré.");
+  };
+
+  const genererPrioritesRose = () => {
+    const nouvellesPriorites: string[] = [];
+
+    if (memoires.some((m) => m.categorie === "Objectif")) {
+      nouvellesPriorites.push("Suivre l’objectif principal.");
+    }
+
+    if (roseTasks.length > 0) {
+      nouvellesPriorites.push("Suivre les missions générées par Rose.");
+    }
+
+    if (roseGoals.length > 0) {
+      nouvellesPriorites.push("Suivre les objectifs IA générés par Rose.");
+    }
+
+    if (webRequests.length > 0) {
+      nouvellesPriorites.push("Valider ou annuler les recherches Web préparées.");
+    }
+
+    if (roseDecisions.length > 0) {
+      nouvellesPriorites.push("Valider ou refuser les décisions proposées.");
+    }
+
+    if (calendarEvents.length > 0) {
+      nouvellesPriorites.push("Planifier les événements importants dans l’agenda.");
+    }
+
+    if (nouvellesPriorites.length === 0) {
+      nouvellesPriorites.push("Enrichir la mémoire de Rose.");
+    }
+
+    setPrioritesRose(nouvellesPriorites);
+    setRoseReponse("Priorités mises à jour.");
+    ajouterJournal("Priorités V7.4 mises à jour.");
+    parler("Mes priorités sont mises à jour.");
+  };
+
+  const genererConseilsRose = () => {
+    const conseils: string[] = [
+      "Utilise l’onglet Tâches pour suivre les missions.",
+      "Utilise l’onglet Objectifs IA pour suivre les grands objectifs.",
+      "Utilise l’onglet Web pour préparer les recherches avant validation.",
+      "Utilise l’onglet Décisions pour comprendre les recommandations.",
+      "Utilise l’onglet Agenda pour préparer les rendez-vous et rappels.",
+      "Continue à valider les actions importantes avant que Rose agisse.",
+    ];
+
+    setConseilsRose(conseils);
+    setRoseReponse("Conseils générés.");
+    ajouterJournal("Conseils V7.4 générés.");
+    parler("J’ai généré mes conseils.");
+  };
+    const definirObjectifPrincipal = () => {
+    if (objectifs.length === 0) {
+      setObjectifPrincipal("Aucun objectif principal défini.");
+      parler("Aucun objectif principal défini.");
+      return;
+    }
+
+    const objectifPrioritaire =
+      objectifs.find((o) => o.progression < 100) || objectifs[0];
+
+    setObjectifPrincipal(objectifPrioritaire.titre);
+    setRoseReponse("Objectif principal détecté.");
+    ajouterJournal(`Objectif principal : ${objectifPrioritaire.titre}`);
+    parler(`Ton objectif principal est ${objectifPrioritaire.titre}`);
+  };
+
+  const genererSyntheseHebdo = () => {
+    const longues = memoires.filter(
+      (m) => m.importance === "Longue durée"
+    );
+
+    const importantes = memoires.filter(
+      (m) => m.importance === "Importante"
+    );
+
+    const tasksActives = roseTasks.filter(
+      (t) => t.status !== "done"
+    );
+
+    const goalsActifs = roseGoals.filter(
+      (g) => g.status !== "done"
+    );
+
+    const webEnAttente = webRequests.filter(
+      (w) => w.status === "waiting_validation"
+    );
+
+    const decisionsProposees = roseDecisions.filter(
+      (d) => d.status === "proposed"
+    );
+
+    const evenementsAPlanifier = calendarEvents.filter(
+      (event) =>
+        event.status === "prepared" ||
+        event.status === "scheduled"
+    );
+
+    const synthese = `Synthèse hebdomadaire Rose :
+- Souvenirs totaux : ${memoires.length}.
+- Souvenirs longue durée : ${longues.length}.
+- Souvenirs importants : ${importantes.length}.
+- Missions actives : ${tasksActives.length}.
+- Objectifs IA actifs : ${goalsActifs.length}.
+- Recherches Web en attente : ${webEnAttente.length}.
+- Décisions proposées : ${decisionsProposees.length}.
+- Événements agenda à suivre : ${evenementsAPlanifier.length}.
+- Objectif principal : ${objectifPrincipal}.
+- Action recommandée : avancer sur les missions prioritaires, valider les décisions utiles et planifier les événements importants.`;
+
+    setSyntheseHebdo(synthese);
+    setRoseReponse("Synthèse hebdomadaire générée.");
+    ajouterJournal("Synthèse hebdomadaire V7.4 générée.");
+    parler("J’ai généré la synthèse hebdomadaire.");
+  };
+
+  const genererAgentWeb = () => {
+    setAgentWebRose([
+      "Web Engine actif : Rose prépare les recherches, David valide.",
+      "Recherche possible : matériaux, couverture, charpente, aides, immobilier et entreprise.",
+      "Sécurité : aucune action externe sans validation.",
+    ]);
+
+    setRoseReponse("Agent web préparé.");
+    ajouterJournal("Agent web V7.4 préparé.");
+    parler("Mon agent web est préparé.");
+  };
+    const genererAgendaRose = () => {
+    setAgendaRose([
+      "Calendar Engine actif : Rose prépare les événements, David valide.",
+      "Rose peut préparer les rendez-vous chantier, client, banque, notaire et maison.",
+      "Connexion Google Calendar réelle prévue dans une prochaine étape.",
+    ]);
+
+    setRoseReponse("Agenda Rose mis à jour.");
+    ajouterJournal("Agenda V7.4 mis à jour.");
+    parler("Mon agenda intelligent est mis à jour.");
+  };
+
+  const genererAutonomieRose = () => {
+    setAutonomieRose([
+      "Rose peut proposer une action automatiquement.",
+      "Rose doit attendre la validation de David avant d’agir.",
+      "Rose peut créer des missions via Task Engine.",
+      "Rose peut créer des objectifs via Goal Engine.",
+      "Rose peut préparer des recherches via Web Engine.",
+      "Rose peut proposer des décisions via Decision Engine.",
+      "Rose peut préparer des événements via Calendar Engine.",
+      "Rose ne modifie jamais son code seule sans confirmation.",
+    ]);
+
+    setRoseReponse("Autonomie contrôlée mise à jour.");
+    ajouterJournal("Autonomie V7.4 mise à jour.");
+    parler("Mon autonomie contrôlée est mise à jour.");
+  };
+
+  const genererProfilDavid = () => {
+    const profil = `Profil David :
+- Métier : couverture / charpente.
+- Objectif principal : ${objectifPrincipal}.
+- Mémoires totales : ${memoires.length}.
+- Mémoires longue durée : ${memoireLongueDuree.length}.
+- Missions Rose : ${roseTasks.length}.
+- Objectifs IA : ${roseGoals.length}.
+- Recherches Web préparées : ${webRequests.length}.
+- Décisions proposées : ${roseDecisions.length}.
+- Événements Agenda : ${calendarEvents.length}.
+Rose doit aider David à progresser, décider, se souvenir, structurer ses priorités et organiser les événements importants.`;
+
+    setProfilDavid(profil);
+    setRoseReponse("Profil David mis à jour.");
+    ajouterJournal("Profil David V7.4 mis à jour.");
+    parler("J’ai mis à jour ton profil.");
+  };
+
+  const genererPlanActionRose = () => {
+    const plan: string[] = [
+      `Avancer sur : ${objectifPrincipal}`,
+      "Suivre les missions dans l’onglet Tâches.",
+      "Suivre les objectifs dans l’onglet Objectifs IA.",
+      "Valider les recherches utiles dans l’onglet Web.",
+      "Valider ou refuser les décisions proposées.",
+      "Planifier les événements importants dans l’onglet Agenda.",
+      "Générer une synthèse hebdomadaire.",
+    ];
+
+    setPlanActionRose(plan);
+    setRoseReponse("Plan d’action généré.");
+    ajouterJournal("Plan d’action V7.4 généré.");
+    parler("J’ai généré mon plan d’action.");
+  };
+    const analyserHabitudesRose = () => {
+    const habitudes: string[] = [];
+
+    if (memoires.some((m) => m.categorie === "Entreprise")) {
+      habitudes.push(
+        "David parle régulièrement de son entreprise, de ses clients et de ses chantiers."
+      );
+    }
+
+    if (memoires.some((m) => m.categorie === "Objectif")) {
+      habitudes.push(
+        "David avance avec des objectifs personnels et professionnels précis."
+      );
+    }
+
+    if (roseTasks.length > 0) {
+      habitudes.push(
+        "David utilise Rose pour générer et suivre des missions."
+      );
+    }
+
+    if (roseGoals.length > 0) {
+      habitudes.push(
+        "David utilise Rose pour structurer ses objectifs IA."
+      );
+    }
+
+    if (webRequests.length > 0) {
+      habitudes.push(
+        "David prépare des recherches Web avec Rose avant validation."
+      );
+    }
+
+    if (roseDecisions.length > 0) {
+      habitudes.push(
+        "David utilise Rose pour analyser et valider des décisions."
+      );
+    }
+
+    if (calendarEvents.length > 0) {
+      habitudes.push(
+        "David utilise Rose pour préparer ses rendez-vous, rappels et événements importants."
+      );
+    }
+
+    if (habitudes.length === 0) {
+      habitudes.push(
+        "Rose manque encore d’informations pour détecter des habitudes fiables."
+      );
+    }
+
+    setHabitudesRose(habitudes);
+    setRoseReponse("J’ai analysé tes habitudes.");
+    ajouterJournal("Habitudes V7.4 analysées.");
+    parler("J’ai analysé tes habitudes.");
+  };
+
+  const genererCoachEntreprise = () => {
+    const infosEntreprise = memoires.filter(
+      (m) => m.categorie === "Entreprise"
+    ).length;
+
+    const evenementsEntreprise = calendarEvents.filter(
