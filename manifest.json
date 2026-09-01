@@ -1,16 +1,19 @@
 {
-  "version": "V10-012C",
-  "name": "Controlled V10 Activation",
-  "project_root": "C:\\rose-ia-mobile-clean",
-  "v10_enabled": true,
-  "scope": "internal cognitive analysis and agent routing only",
-  "autonomy_enabled": false,
-  "external_actions_allowed": false,
-  "legacy_fallback": true,
-  "files": [
-    "INSTALL_V10_012C.ps1",
-    "V10AppResponse.ts",
-    "createRoseAppHook.ts",
-    "README_V10_012C.md"
-  ]
+  "version": "V10-012D",
+  "name": "Rich Cognitive Response",
+  "requires": "V10-012C",
+  "changes": [
+    "enriched V10 response presenter",
+    "intent label",
+    "selected agents",
+    "optional confidence",
+    "validation status",
+    "safe suggested next action",
+    "updated App.tsx phase markers"
+  ],
+  "safety": {
+    "legacy_fallback": true,
+    "autonomy": false,
+    "automatic_external_actions": false
+  }
 }
