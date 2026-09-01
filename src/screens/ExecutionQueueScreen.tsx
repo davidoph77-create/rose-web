@@ -22,6 +22,10 @@ import {
 import type {
   ExecutionQueueItem,
 } from "../core/v10/execution_queue/ExecutionQueueTypes";
+import {
+  prepareReleaseGate,
+  updateReleaseGateStatus,
+} from "../core/v10/release_gate";
 
 export default function ExecutionQueueScreen() {
   const [
@@ -72,11 +76,54 @@ export default function ExecutionQueueScreen() {
       "reviewed"
     );
 
+    const reviewedItem = {
+      ...item,
+      status:
+        "reviewed" as const,
+    };
+
+    const release =
+      await prepareReleaseGate(
+        reviewedItem
+      );
+
     setReviewMessage(
-      review.summary
+      `${review.summary} ${release.summary}`
     );
 
     await charger();
+  };
+
+  const confirmerRelease = (
+    item: ExecutionQueueItem
+  ) => {
+    Alert.alert(
+      "Seconde confirmation",
+      "Confirmer cette action pour le Release Gate ? Cette version reste en simulation : aucune action externe réelle ne sera exécutée.",
+      [
+        {
+          text: "Retour",
+          style: "cancel",
+        },
+        {
+          text: "Confirmer",
+          onPress: async () => {
+            const result =
+              await updateReleaseGateStatus(
+                item.id,
+                "release_confirmed",
+                "David"
+              );
+
+            setReviewMessage(
+              result
+                ? "Release Gate : CONFIRMÉ. Action prête pour une future phase d'exécution contrôlée, mais toujours en simulation dans V10-023."
+                : "Release Gate introuvable. Revois d'abord le Dry Run."
+            );
+          },
+        },
+      ]
+    );
   };
 
   const annuler = (
@@ -84,7 +131,7 @@ export default function ExecutionQueueScreen() {
   ) => {
     Alert.alert(
       "Annuler cette action",
-      "Cette action restera dans l'historique mais sera marquée comme annulée.",
+      "Cette action sera marquée comme annulée et ne pourra pas passer le Release Gate.",
       [
         {
           text: "Retour",
@@ -99,8 +146,14 @@ export default function ExecutionQueueScreen() {
               "cancelled"
             );
 
+            await updateReleaseGateStatus(
+              item.id,
+              "release_cancelled",
+              "David"
+            );
+
             setReviewMessage(
-              "Action annulée dans la file d'exécution. Aucune action externe n'a été exécutée."
+              "Action annulée. Release Gate bloqué. Aucune action externe n'a été exécutée."
             );
 
             await charger();
@@ -135,16 +188,17 @@ export default function ExecutionQueueScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        V10-022 rend la file d'exécution
-        simulée visible. Tu peux revoir ou
-        annuler chaque action avant toute
-        future activation réelle.
+        V10-023 ajoute un Release Gate
+        après le Dry Run Review. Une seconde
+        confirmation humaine est requise.
+        L'exécution externe réelle reste
+        désactivée.
       </Text>
 
       {reviewMessage ? (
         <View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>
-            Dry Run Review
+            Release Gate
           </Text>
           <Text style={styles.reviewText}>
             {reviewMessage}
@@ -153,18 +207,9 @@ export default function ExecutionQueueScreen() {
       ) : null}
 
       <View style={styles.stats}>
-        <Stat
-          label="À revoir"
-          value={queued}
-        />
-        <Stat
-          label="Revues"
-          value={reviewed}
-        />
-        <Stat
-          label="Annulées"
-          value={cancelled}
-        />
+        <Stat label="À revoir" value={queued} />
+        <Stat label="Revues" value={reviewed} />
+        <Stat label="Annulées" value={cancelled} />
       </View>
 
       <TouchableOpacity
@@ -190,37 +235,28 @@ export default function ExecutionQueueScreen() {
           contentContainerStyle={styles.list}
         >
           {items.map((item) => (
-            <View
-              key={item.id}
-              style={styles.card}
-            >
+            <View key={item.id} style={styles.card}>
               <View style={styles.topRow}>
                 <View
                   style={[
                     styles.badge,
-                    item.status ===
-                      "reviewed" &&
+                    item.status === "reviewed" &&
                       styles.badgeReviewed,
-                    item.status ===
-                      "cancelled" &&
+                    item.status === "cancelled" &&
                       styles.badgeCancelled,
                   ]}
                 >
                   <Text style={styles.badgeText}>
-                    {statusLabel(
-                      item.status
-                    )}
+                    {statusLabel(item.status)}
                   </Text>
                 </View>
 
                 <View
                   style={[
                     styles.riskBadge,
-                    item.risk ===
-                      "high" &&
+                    item.risk === "high" &&
                       styles.riskHigh,
-                    item.risk ===
-                      "medium" &&
+                    item.risk === "medium" &&
                       styles.riskMedium,
                   ]}
                 >
@@ -253,14 +289,11 @@ export default function ExecutionQueueScreen() {
                 ).toLocaleString()}
               </Text>
 
-              {item.status ===
-                "queued" && (
+              {item.status === "queued" && (
                 <View style={styles.actions}>
                   <TouchableOpacity
                     style={styles.reviewButton}
-                    onPress={() =>
-                      revoir(item)
-                    }
+                    onPress={() => revoir(item)}
                   >
                     <Text style={styles.buttonText}>
                       Revoir le Dry Run
@@ -269,9 +302,7 @@ export default function ExecutionQueueScreen() {
 
                   <TouchableOpacity
                     style={styles.cancelButton}
-                    onPress={() =>
-                      annuler(item)
-                    }
+                    onPress={() => annuler(item)}
                   >
                     <Text style={styles.buttonText}>
                       Annuler
@@ -280,19 +311,29 @@ export default function ExecutionQueueScreen() {
                 </View>
               )}
 
-              {item.status ===
-                "reviewed" && (
-                <Text style={styles.safeNotice}>
-                  Action revue. Elle reste en
-                  simulation uniquement.
-                </Text>
+              {item.status === "reviewed" && (
+                <>
+                  <Text style={styles.safeNotice}>
+                    Dry Run revu. Seconde confirmation
+                    requise avant toute future phase.
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.releaseButton}
+                    onPress={() =>
+                      confirmerRelease(item)
+                    }
+                  >
+                    <Text style={styles.buttonText}>
+                      Confirmer le Release Gate
+                    </Text>
+                  </TouchableOpacity>
+                </>
               )}
 
-              {item.status ===
-                "cancelled" && (
+              {item.status === "cancelled" && (
                 <Text style={styles.cancelNotice}>
-                  Action annulée. Aucune exécution
-                  externe n'a eu lieu.
+                  Action annulée. Release Gate bloqué.
                 </Text>
               )}
             </View>
@@ -312,20 +353,14 @@ function Stat({
 }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statValue}>
-        {value}
-      </Text>
-      <Text style={styles.statLabel}>
-        {label}
-      </Text>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 function statusLabel(
-  status: ExecutionQueueItem[
-    "status"
-  ]
+  status: ExecutionQueueItem["status"]
 ) {
   if (status === "reviewed")
     return "REVUE";
@@ -337,10 +372,7 @@ function statusLabel(
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingBottom: 20,
-  },
+  container: { flex: 1, paddingBottom: 20 },
   title: {
     color: "#f8fafc",
     fontSize: 22,
@@ -410,12 +442,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
   },
-  emptyText: {
-    color: "#94a3b8",
-  },
-  list: {
-    paddingBottom: 60,
-  },
+  emptyText: { color: "#94a3b8" },
+  list: { paddingBottom: 60 },
   card: {
     backgroundColor: "#111827",
     borderWidth: 1,
@@ -436,12 +464,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
   },
-  badgeReviewed: {
-    backgroundColor: "#166534",
-  },
-  badgeCancelled: {
-    backgroundColor: "#991b1b",
-  },
+  badgeReviewed: { backgroundColor: "#166534" },
+  badgeCancelled: { backgroundColor: "#991b1b" },
   badgeText: {
     color: "#ffffff",
     fontSize: 10,
@@ -453,12 +477,8 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
   },
-  riskHigh: {
-    backgroundColor: "#991b1b",
-  },
-  riskMedium: {
-    backgroundColor: "#92400e",
-  },
+  riskHigh: { backgroundColor: "#991b1b" },
+  riskMedium: { backgroundColor: "#92400e" },
   riskText: {
     color: "#ffffff",
     fontSize: 10,
@@ -503,6 +523,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#991b1b",
     borderRadius: 12,
     paddingVertical: 10,
+    alignItems: "center",
+  },
+  releaseButton: {
+    marginTop: 10,
+    backgroundColor: "#7c3aed",
+    borderRadius: 12,
+    paddingVertical: 11,
     alignItems: "center",
   },
   buttonText: {

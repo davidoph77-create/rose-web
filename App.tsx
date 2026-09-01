@@ -608,7 +608,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-022 - Review Queue UI
+  // Rose V10-023 - Release Gate & Two-Step Confirmation
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -637,14 +637,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-022",
+        appVersion: "V10-023",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-022] mode=${result.mode}`,
+      `[Rose V10-023] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -677,7 +677,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-022 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / queue=visible`
+        `V10-023 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / release=two-step`
       );
       parler(summary.text);
       setMessage("");
