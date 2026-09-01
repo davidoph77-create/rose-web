@@ -398,6 +398,34 @@ export default function AuditHistoryScreen() {
           Calendar connector remains controlled. Real external execution is still blocked.
         </Text>
       </View>
+      <View style={styles.calendarProviderCard}>
+        <Text style={styles.sectionTitle}>Real Calendar Provider Bridge</Text>
+        <Text style={styles.sectionHint}>
+          Rose now has a real provider interface behind the V10 Calendar safety gate.
+          No external provider credentials are installed in V10-039.
+        </Text>
+
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Provider bridge</Text>
+          <Text style={styles.calendarProviderValue}>READY</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Real provider</Text>
+          <Text style={styles.calendarProviderValue}>NOT CONFIGURED</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>V10 safety gate</Text>
+          <Text style={styles.calendarProviderValue}>REQUIRED</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Write mode</Text>
+          <Text style={styles.calendarProviderValue}>DRY-RUN ONLY</Text>
+        </View>
+
+        <Text style={styles.calendarProviderSafety}>
+          V10-039 prepares the provider bridge only. No real Calendar event can be created yet.
+        </Text>
+      </View>
       <View style={styles.dashboardGrid}>
         <DashboardCard label="Rapports" value={stats.totalReports} />
         <DashboardCard label="Preuves" value={stats.totalEvidence} />
@@ -836,6 +864,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webConnectorSafety: {
+    color: "#fbbf24",
+    fontSize: 10,
+    lineHeight: 16,
+    marginTop: 12,
+    fontWeight: "700",
+  },
+  calendarProviderCard: {
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#22c55e",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  calendarProviderValue: {
+    color: "#86efac",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  calendarProviderSafety: {
     color: "#fbbf24",
     fontSize: 10,
     lineHeight: 16,
