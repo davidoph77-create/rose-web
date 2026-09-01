@@ -16,6 +16,7 @@ import TaskScreen from "./src/screens/TaskScreen";
 import ApprovalScreen from "./src/screens/ApprovalScreen";
 import ExecutionQueueScreen from "./src/screens/ExecutionQueueScreen";
 import EvidenceLedgerScreen from "./src/screens/EvidenceLedgerScreen";
+import AuditHistoryScreen from "./src/screens/AuditHistoryScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -75,7 +76,8 @@ type Tab =
   | "tasks"
   | "approvals"
   | "executionQueue"
-  | "evidence";
+  | "evidence"
+  | "auditHistory";
 
 type Memoire = {
   id: number;
@@ -610,7 +612,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-030 - Audit Report Engine
+  // Rose V10-031 - Audit History & Detail Viewer
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -639,14 +641,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-030",
+        appVersion: "V10-031",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-030] mode=${result.mode}`,
+      `[Rose V10-031] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -679,7 +681,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-030 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / audit=report`
+        `V10-031 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / audit=history`
       );
       parler(summary.text);
       setMessage("");
@@ -1335,6 +1337,11 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
             active={tab === "evidence"}
             onPress={() => setTab("evidence")}
           />
+          <TabButton
+            title="Audits"
+            active={tab === "auditHistory"}
+            onPress={() => setTab("auditHistory")}
+          />
         </View>
 
         <ScrollView
@@ -1477,6 +1484,9 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
           )}
           {tab === "evidence" && (
             <EvidenceLedgerScreen />
+          )}
+          {tab === "auditHistory" && (
+            <AuditHistoryScreen />
           )}
         </ScrollView>
       </View>
