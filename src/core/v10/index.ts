@@ -1,4 +1,4 @@
-export * from "./contracts";
+﻿export * from "./contracts";
 export * from "./foundation";
 export * from "./adapters";
 export * from "./diagnostics";
@@ -14,3 +14,4 @@ export * from "./autonomy_v3";
 export * from "./rose_os";
 export * from "./app_bridge";
 export * from "./app_hook";
+export * from "./execution_pipeline";

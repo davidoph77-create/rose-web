@@ -1,0 +1,6 @@
+{
+  "version": "V10-013-FIXED",
+  "fix": "prevents root index.ts collision",
+  "root_index_protected": true,
+  "installation_recommendation": "extract outside project then run installer with -ProjectRoot"
+}

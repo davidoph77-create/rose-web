@@ -603,7 +603,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-012D - Rich Cognitive Response
+  // Rose V10-013 - Cognitive Execution Pipeline
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -632,14 +632,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-012D",
+        appVersion: "V10-013",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-012D] mode=${result.mode}`,
+      `[Rose V10-013] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -662,7 +662,7 @@ export default function App() {
 
       setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-012D : ${summary.intent ?? "general"} / ${summary.selectedAgents.join(", ") || "aucun agent"} / validation=${summary.requiresValidation ? "oui" : "non"}`
+        `V10-013 : ${summary.intent ?? "general"} / ${summary.selectedAgents.join(", ") || "aucun agent"} / ${summary.executionSummary ?? "pipeline exÃ©cutÃ©"}`
       );
       parler(summary.text);
       setMessage("");
