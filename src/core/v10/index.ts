@@ -26,3 +26,4 @@ export * from "./execution_queue";
 export * from "./release_gate";
 export * from "./adapter_registry";
 export * from "./adapter_invocation";
+export * from "./invocation_verification";
