@@ -606,7 +606,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-017 - Approval UI & Decision Store
+  // Rose V10-018 - Approval Execution Bridge
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -635,14 +635,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-017",
+        appVersion: "V10-018",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-017] mode=${result.mode}`,
+      `[Rose V10-018] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -675,7 +675,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-017 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / store=persisted`
+        `V10-018 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / bridge=active`
       );
       parler(summary.text);
       setMessage("");

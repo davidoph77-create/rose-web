@@ -18,6 +18,9 @@ import {
   setApprovalDecisionStatus,
   StoredApprovalDecision,
 } from "../core/v10/approval_ui/ApprovalDecisionStore";
+import {
+  syncApprovalExecutionBridge,
+} from "../core/v10/approval_execution_bridge";
 
 export default function ApprovalScreen() {
   const [
@@ -41,6 +44,7 @@ export default function ApprovalScreen() {
           await listApprovalDecisions();
 
         setDecisions(data);
+        await syncApprovalExecutionBridge();
       } finally {
         setLoading(false);
       }
@@ -64,6 +68,7 @@ export default function ApprovalScreen() {
       "David"
     );
 
+    await syncApprovalExecutionBridge();
     await charger();
   };
 
@@ -81,6 +86,7 @@ export default function ApprovalScreen() {
           style: "destructive",
           onPress: async () => {
             await clearResolvedApprovals();
+            await syncApprovalExecutionBridge();
             await charger();
           },
         },
@@ -114,23 +120,16 @@ export default function ApprovalScreen() {
 
       <Text style={styles.subtitle}>
         Décisions humaines persistantes.
+        V10-018 renvoie maintenant ces
+        décisions au pipeline interne.
         Aucune approbation n'exécute
         automatiquement une action externe.
       </Text>
 
       <View style={styles.stats}>
-        <Stat
-          label="En attente"
-          value={pending}
-        />
-        <Stat
-          label="Approuvées"
-          value={approved}
-        />
-        <Stat
-          label="Refusées"
-          value={rejected}
-        />
+        <Stat label="En attente" value={pending} />
+        <Stat label="Approuvées" value={approved} />
+        <Stat label="Refusées" value={rejected} />
       </View>
 
       <View style={styles.toolbar}>
@@ -139,9 +138,7 @@ export default function ApprovalScreen() {
           onPress={charger}
         >
           <Text style={styles.buttonText}>
-            {loading
-              ? "Chargement..."
-              : "Actualiser"}
+            {loading ? "Chargement..." : "Actualiser"}
           </Text>
         </TouchableOpacity>
 
@@ -164,38 +161,25 @@ export default function ApprovalScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={
-            styles.list
-          }
+          contentContainerStyle={styles.list}
         >
           {decisions.map((item) => (
-            <View
-              key={item.id}
-              style={styles.card}
-            >
+            <View key={item.id} style={styles.card}>
               <View
                 style={[
                   styles.badge,
-                  item.status ===
-                    "approved" &&
+                  item.status === "approved" &&
                     styles.badgeApproved,
-                  item.status ===
-                    "rejected" &&
+                  item.status === "rejected" &&
                     styles.badgeRejected,
                 ]}
               >
-                <Text
-                  style={styles.badgeText}
-                >
-                  {labelStatus(
-                    item.status
-                  )}
+                <Text style={styles.badgeText}>
+                  {labelStatus(item.status)}
                 </Text>
               </View>
 
-              <Text
-                style={styles.message}
-              >
+              <Text style={styles.message}>
                 {item.message}
               </Text>
 
@@ -206,9 +190,7 @@ export default function ApprovalScreen() {
               <Text style={styles.meta}>
                 Agents :{" "}
                 {item.agents.length > 0
-                  ? item.agents.join(
-                      ", "
-                    )
+                  ? item.agents.join(", ")
                   : "non précisés"}
               </Text>
 
@@ -219,15 +201,10 @@ export default function ApprovalScreen() {
                 ).toLocaleString()}
               </Text>
 
-              {item.status ===
-                "pending" && (
-                <View
-                  style={styles.actions}
-                >
+              {item.status === "pending" && (
+                <View style={styles.actions}>
                   <TouchableOpacity
-                    style={
-                      styles.approveButton
-                    }
+                    style={styles.approveButton}
                     onPress={() =>
                       changerStatut(
                         item.id,
@@ -235,19 +212,13 @@ export default function ApprovalScreen() {
                       )
                     }
                   >
-                    <Text
-                      style={
-                        styles.buttonText
-                      }
-                    >
+                    <Text style={styles.buttonText}>
                       Approuver
                     </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={
-                      styles.rejectButton
-                    }
+                    style={styles.rejectButton}
                     onPress={() =>
                       changerStatut(
                         item.id,
@@ -255,27 +226,19 @@ export default function ApprovalScreen() {
                       )
                     }
                   >
-                    <Text
-                      style={
-                        styles.buttonText
-                      }
-                    >
+                    <Text style={styles.buttonText}>
                       Refuser
                     </Text>
                   </TouchableOpacity>
                 </View>
               )}
 
-              {item.status !==
-                "pending" && (
-                <Text
-                  style={
-                    styles.safeNotice
-                  }
-                >
-                  Décision enregistrée.
-                  Aucune action externe
-                  n'a été exécutée.
+              {item.status !== "pending" && (
+                <Text style={styles.safeNotice}>
+                  Décision enregistrée et
+                  synchronisée avec le pipeline
+                  interne V10. Aucune action
+                  externe n'a été exécutée.
                 </Text>
               )}
             </View>
@@ -295,20 +258,14 @@ function Stat({
 }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statValue}>
-        {value}
-      </Text>
-      <Text style={styles.statLabel}>
-        {label}
-      </Text>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 function labelStatus(
-  status: StoredApprovalDecision[
-    "status"
-  ]
+  status: StoredApprovalDecision["status"]
 ) {
   if (status === "approved")
     return "APPROUVÉE";
@@ -320,10 +277,7 @@ function labelStatus(
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingBottom: 20,
-  },
+  container: { flex: 1, paddingBottom: 20 },
   title: {
     color: "#f8fafc",
     fontSize: 22,
@@ -379,9 +333,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
-  list: {
-    paddingBottom: 50,
-  },
+  list: { paddingBottom: 50 },
   empty: {
     backgroundColor: "#111827",
     borderRadius: 16,
@@ -389,9 +341,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1e293b",
   },
-  emptyText: {
-    color: "#94a3b8",
-  },
+  emptyText: { color: "#94a3b8" },
   card: {
     backgroundColor: "#111827",
     borderWidth: 1,
