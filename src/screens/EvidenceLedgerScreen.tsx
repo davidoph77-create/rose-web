@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -17,6 +18,17 @@ import {
 import type {
   EvidenceLedgerEntry,
 } from "../core/v10/evidence_ledger";
+import {
+  verifyEvidenceIntegrity,
+} from "../core/v10/evidence_ledger/EvidenceIntegrityVerifier";
+
+type IntegrityMap = Record<
+  string,
+  {
+    valid: boolean;
+    summary: string;
+  }
+>;
 
 export default function EvidenceLedgerScreen() {
   const [
@@ -28,6 +40,11 @@ export default function EvidenceLedgerScreen() {
     loading,
     setLoading,
   ] = useState(false);
+
+  const [
+    integrity,
+    setIntegrity,
+  ] = useState<IntegrityMap>({});
 
   const charger = useCallback(
     async () => {
@@ -49,16 +66,50 @@ export default function EvidenceLedgerScreen() {
     charger();
   }, [charger]);
 
+  const verifierTout = () => {
+    const next: IntegrityMap = {};
+
+    for (const entry of entries) {
+      const result =
+        verifyEvidenceIntegrity(
+          entry
+        );
+
+      next[entry.id] = {
+        valid:
+          result.valid,
+        summary:
+          result.summary,
+      };
+    }
+
+    setIntegrity(next);
+  };
+
+  const integrityStats = useMemo(() => {
+    const values =
+      Object.values(integrity);
+
+    return {
+      checked:
+        values.length,
+      valid:
+        values.filter(
+          (item) =>
+            item.valid
+        ).length,
+      invalid:
+        values.filter(
+          (item) =>
+            !item.valid
+        ).length,
+    };
+  }, [integrity]);
+
   const verified =
     entries.filter(
       (item) =>
         item.status === "verified"
-    ).length;
-
-  const failed =
-    entries.filter(
-      (item) =>
-        item.status === "failed"
     ).length;
 
   return (
@@ -68,11 +119,10 @@ export default function EvidenceLedgerScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        Journal local des preuves créées après
-        les vérifications Sandbox. Chaque entrée
-        contient un hash d'intégrité et confirme
-        qu'aucune exécution externe réelle n'a
-        été détectée.
+        V10-029 ajoute une revalidation locale
+        du hash de chaque preuve. Rose peut
+        maintenant détecter une altération du
+        payload ou du hash stocké.
       </Text>
 
       <View style={styles.stats}>
@@ -85,21 +135,48 @@ export default function EvidenceLedgerScreen() {
           value={verified}
         />
         <Stat
-          label="Échecs"
-          value={failed}
+          label="Altérées"
+          value={integrityStats.invalid}
         />
       </View>
 
-      <TouchableOpacity
-        style={styles.refreshButton}
-        onPress={charger}
-      >
-        <Text style={styles.buttonText}>
-          {loading
-            ? "Chargement..."
-            : "Actualiser les preuves"}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.buttonsRow}>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={charger}
+        >
+          <Text style={styles.buttonText}>
+            {loading
+              ? "Chargement..."
+              : "Actualiser"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.verifyButton}
+          onPress={verifierTout}
+        >
+          <Text style={styles.buttonText}>
+            Vérifier l'intégrité
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {integrityStats.checked > 0 ? (
+        <View
+          style={[
+            styles.integritySummary,
+            integrityStats.invalid > 0 &&
+              styles.integritySummaryAlert,
+          ]}
+        >
+          <Text style={styles.integritySummaryText}>
+            {integrityStats.invalid === 0
+              ? `Intégrité OK : ${integrityStats.valid}/${integrityStats.checked} preuves valides.`
+              : `ALERTE : ${integrityStats.invalid} preuve(s) altérée(s) détectée(s).`}
+          </Text>
+        </View>
+      ) : null}
 
       {entries.length === 0 ? (
         <View style={styles.empty}>
@@ -112,73 +189,101 @@ export default function EvidenceLedgerScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.list}
         >
-          {entries.map((item) => (
-            <View
-              key={item.id}
-              style={styles.card}
-            >
-              <View style={styles.topRow}>
-                <View
-                  style={[
-                    styles.badge,
-                    item.status ===
-                      "failed" &&
-                      styles.badgeFailed,
-                  ]}
-                >
-                  <Text style={styles.badgeText}>
-                    {item.status === "verified"
-                      ? "VÉRIFIÉE"
-                      : item.status.toUpperCase()}
-                  </Text>
+          {entries.map((item) => {
+            const check =
+              integrity[item.id];
+
+            return (
+              <View
+                key={item.id}
+                style={styles.card}
+              >
+                <View style={styles.topRow}>
+                  <View
+                    style={[
+                      styles.badge,
+                      item.status ===
+                        "failed" &&
+                        styles.badgeFailed,
+                    ]}
+                  >
+                    <Text style={styles.badgeText}>
+                      {item.status === "verified"
+                        ? "VÉRIFIÉE"
+                        : item.status.toUpperCase()}
+                    </Text>
+                  </View>
+
+                  {check ? (
+                    <View
+                      style={[
+                        styles.integrityBadge,
+                        !check.valid &&
+                          styles.integrityBadgeBad,
+                      ]}
+                    >
+                      <Text
+                        style={styles.integrityBadgeText}
+                      >
+                        {check.valid
+                          ? "HASH OK"
+                          : "HASH ALTÉRÉ"}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
 
-                <View style={styles.safeBadge}>
-                  <Text style={styles.safeBadgeText}>
-                    EXTERNE : NON
+                <Text style={styles.adapter}>
+                  {item.adapterId}
+                </Text>
+
+                <Text style={styles.capability}>
+                  Capacité : {item.capability}
+                </Text>
+
+                <Text style={styles.hashLabel}>
+                  Hash d'intégrité
+                </Text>
+
+                <Text style={styles.hash}>
+                  {item.integrityHash}
+                </Text>
+
+                {check ? (
+                  <Text
+                    style={[
+                      styles.checkText,
+                      !check.valid &&
+                        styles.checkTextBad,
+                    ]}
+                  >
+                    {check.summary}
                   </Text>
-                </View>
+                ) : null}
+
+                <Text style={styles.meta}>
+                  Verification ID :{" "}
+                  {item.verificationId}
+                </Text>
+
+                <Text style={styles.meta}>
+                  Invocation ID :{" "}
+                  {item.invocationId}
+                </Text>
+
+                <Text style={styles.date}>
+                  Créée :{" "}
+                  {new Date(
+                    item.createdAt
+                  ).toLocaleString()}
+                </Text>
+
+                <Text style={styles.notice}>
+                  Exécution externe détectée : NON
+                </Text>
               </View>
-
-              <Text style={styles.adapter}>
-                {item.adapterId}
-              </Text>
-
-              <Text style={styles.capability}>
-                Capacité : {item.capability}
-              </Text>
-
-              <Text style={styles.hashLabel}>
-                Hash d'intégrité
-              </Text>
-
-              <Text style={styles.hash}>
-                {item.integrityHash}
-              </Text>
-
-              <Text style={styles.meta}>
-                Verification ID :{" "}
-                {item.verificationId}
-              </Text>
-
-              <Text style={styles.meta}>
-                Invocation ID :{" "}
-                {item.invocationId}
-              </Text>
-
-              <Text style={styles.date}>
-                Créée :{" "}
-                {new Date(
-                  item.createdAt
-                ).toLocaleString()}
-              </Text>
-
-              <Text style={styles.notice}>
-                Aucune exécution externe réelle
-                détectée.
-              </Text>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
     </View>
@@ -245,18 +350,44 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 3,
   },
+  buttonsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
   refreshButton: {
-    alignSelf: "flex-start",
     backgroundColor: "#1d4ed8",
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 12,
+  },
+  verifyButton: {
+    backgroundColor: "#7c3aed",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   buttonText: {
     color: "#ffffff",
     fontWeight: "800",
     fontSize: 12,
+  },
+  integritySummary: {
+    backgroundColor: "#14532d",
+    borderWidth: 1,
+    borderColor: "#22c55e",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 12,
+  },
+  integritySummaryAlert: {
+    backgroundColor: "#7f1d1d",
+    borderColor: "#ef4444",
+  },
+  integritySummaryText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "800",
   },
   empty: {
     backgroundColor: "#111827",
@@ -299,14 +430,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "900",
   },
-  safeBadge: {
-    backgroundColor: "#172554",
+  integrityBadge: {
+    backgroundColor: "#0f766e",
     borderRadius: 20,
     paddingVertical: 5,
     paddingHorizontal: 10,
   },
-  safeBadgeText: {
-    color: "#bfdbfe",
+  integrityBadgeBad: {
+    backgroundColor: "#991b1b",
+  },
+  integrityBadgeText: {
+    color: "#ffffff",
     fontSize: 10,
     fontWeight: "900",
   },
@@ -332,6 +466,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "900",
     marginBottom: 10,
+  },
+  checkText: {
+    color: "#86efac",
+    fontSize: 11,
+    marginBottom: 10,
+  },
+  checkTextBad: {
+    color: "#fca5a5",
   },
   meta: {
     color: "#94a3b8",
