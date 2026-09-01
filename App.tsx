@@ -608,7 +608,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-024 - Adapter Registry & Capability Matrix
+  // Rose V10-025 - Adapter Invocation Sandbox
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -637,14 +637,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-024",
+        appVersion: "V10-025",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-024] mode=${result.mode}`,
+      `[Rose V10-025] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -677,7 +677,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-024 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / adapters=registry`
+        `V10-025 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / adapter=sandbox`
       );
       parler(summary.text);
       setMessage("");

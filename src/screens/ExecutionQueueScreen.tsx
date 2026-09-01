@@ -27,8 +27,8 @@ import {
   updateReleaseGateStatus,
 } from "../core/v10/release_gate";
 import {
-  resolveReleaseToAdapter,
-} from "../core/v10/adapter_registry";
+  invokeConfirmedReleaseInSandbox,
+} from "../core/v10/adapter_invocation";
 
 export default function ExecutionQueueScreen() {
   const [
@@ -102,7 +102,7 @@ export default function ExecutionQueueScreen() {
   ) => {
     Alert.alert(
       "Seconde confirmation",
-      "Confirmer cette action pour le Release Gate ? V10-024 sélectionnera ensuite uniquement un adaptateur en mode simulation.",
+      "Confirmer cette action ? V10-025 invoquera ensuite l'adaptateur uniquement dans une Sandbox de simulation.",
       [
         {
           text: "Retour",
@@ -111,27 +111,27 @@ export default function ExecutionQueueScreen() {
         {
           text: "Confirmer",
           onPress: async () => {
-            const result =
+            const record =
               await updateReleaseGateStatus(
                 item.id,
                 "release_confirmed",
                 "David"
               );
 
-            if (!result) {
+            if (!record) {
               setReviewMessage(
                 "Release Gate introuvable. Revois d'abord le Dry Run."
               );
               return;
             }
 
-            const adapterResolution =
-              resolveReleaseToAdapter(
-                result
+            const invocation =
+              await invokeConfirmedReleaseInSandbox(
+                record
               );
 
             setReviewMessage(
-              `Release Gate : CONFIRMÉ. ${adapterResolution.summary}`
+              `Release Gate : CONFIRMÉ. ${invocation.summary}`
             );
           },
         },
@@ -144,7 +144,7 @@ export default function ExecutionQueueScreen() {
   ) => {
     Alert.alert(
       "Annuler cette action",
-      "Cette action sera marquée comme annulée et ne pourra pas passer le Release Gate.",
+      "Cette action sera marquée comme annulée et aucune invocation d'adaptateur n'aura lieu.",
       [
         {
           text: "Retour",
@@ -166,7 +166,7 @@ export default function ExecutionQueueScreen() {
             );
 
             setReviewMessage(
-              "Action annulée. Release Gate bloqué. Aucun adaptateur réel n'a été exécuté."
+              "Action annulée. Aucune invocation d'adaptateur n'a eu lieu."
             );
 
             await charger();
@@ -201,17 +201,17 @@ export default function ExecutionQueueScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        V10-024 ajoute un Adapter Registry
-        et une Capability Matrix. Après le
-        Release Gate, Rose sélectionne le bon
-        adaptateur, mais tous les adaptateurs
-        externes restent en simulation.
+        V10-025 ajoute l'Adapter Invocation
+        Sandbox. Après confirmation du Release
+        Gate, Rose invoque réellement le bon
+        adaptateur, mais uniquement dans une
+        Sandbox de simulation.
       </Text>
 
       {reviewMessage ? (
         <View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>
-            Adapter Registry
+            Adapter Invocation Sandbox
           </Text>
           <Text style={styles.reviewText}>
             {reviewMessage}
@@ -288,7 +288,7 @@ export default function ExecutionQueueScreen() {
               </Text>
 
               <Text style={styles.meta}>
-                Simulation uniquement : OUI
+                Sandbox uniquement : OUI
               </Text>
 
               <Text style={styles.meta}>
@@ -328,8 +328,8 @@ export default function ExecutionQueueScreen() {
                 <>
                   <Text style={styles.safeNotice}>
                     Dry Run revu. Le Release Gate
-                    peut maintenant sélectionner
-                    un adaptateur simulé.
+                    peut maintenant invoquer
+                    l'adaptateur en Sandbox.
                   </Text>
 
                   <TouchableOpacity
@@ -339,7 +339,7 @@ export default function ExecutionQueueScreen() {
                     }
                   >
                     <Text style={styles.buttonText}>
-                      Confirmer le Release Gate
+                      Confirmer + lancer Sandbox
                     </Text>
                   </TouchableOpacity>
                 </>
@@ -347,8 +347,7 @@ export default function ExecutionQueueScreen() {
 
               {item.status === "cancelled" && (
                 <Text style={styles.cancelNotice}>
-                  Action annulée. Aucun adaptateur
-                  ne sera exécuté.
+                  Action annulée. Sandbox non lancée.
                 </Text>
               )}
             </View>
