@@ -1,0 +1,16 @@
+{
+  "version": "V10-012C",
+  "name": "Controlled V10 Activation",
+  "project_root": "C:\\rose-ia-mobile-clean",
+  "v10_enabled": true,
+  "scope": "internal cognitive analysis and agent routing only",
+  "autonomy_enabled": false,
+  "external_actions_allowed": false,
+  "legacy_fallback": true,
+  "files": [
+    "INSTALL_V10_012C.ps1",
+    "V10AppResponse.ts",
+    "createRoseAppHook.ts",
+    "README_V10_012C.md"
+  ]
+}

@@ -1,5 +1,5 @@
 ﻿import RoseScreen from "./src/screens/RoseScreen";
-import { createRoseAppHook, formatRoseV10AppResponse } from "./src/core/v10/app_hook";
+import { createRoseAppHook } from "./src/core/v10/app_hook";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -603,23 +603,15 @@ export default function App() {
     }
   };
 
-  // Rose V10-012C - Controlled V10 Activation
-  // V10 est actif pour l'analyse/routage interne uniquement.
-  // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
-  // En cas d'erreur, le hook retombe automatiquement sur V7.4.
+  // Rose V10-012B - Safe App Hook
+  // V10 reste desactive par defaut dans RoseAppFeatureFlag.ts.
+  // Le comportement V7.4 actuel reste le chemin de secours.
   const roseAppHook = useMemo(
     () =>
-      createRoseAppHook(
-        async () => {
-          analyserMessageLegacy();
-          return { handledBy: "legacy" };
-        },
-        {
-          enabled: true,
-          fallbackToLegacy: true,
-          enableAutonomy: false,
-        }
-      ),
+      createRoseAppHook(async () => {
+        analyserMessageLegacy();
+        return { handledBy: "legacy" };
+      }),
     [message]
   );
 
@@ -632,41 +624,15 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-012C",
+        appVersion: "V10-012B",
         autonomyEnabled: false,
-        externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-012C] mode=${result.mode}`,
+      `[Rose V10-012B] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
-
-    // En mode V10, on conserve les comportements sÃ»rs de l'app :
-    // mÃ©morisation locale/cloud, journal, TTS et remise Ã  zÃ©ro du champ.
-    if (result.mode === "v10") {
-      const categorie = detecterCategorie(messageEnvoye);
-      const importance = detecterImportance(messageEnvoye);
-
-      ajouterMemoire(
-        messageEnvoye,
-        categorie,
-        importance
-      );
-
-      const summary =
-        formatRoseV10AppResponse(
-          result.value
-        );
-
-      setRoseReponse(summary.text);
-      ajouterJournal(
-        `V10-012C : ${summary.intent ?? "general"} / ${summary.selectedAgents.join(", ") || "aucun agent"}`
-      );
-      parler(summary.text);
-      setMessage("");
-    }
   };
   const analyserMessageLegacy = () => {
     if (!message.trim()) return;
