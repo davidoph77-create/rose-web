@@ -102,7 +102,7 @@ export default function ExecutionQueueScreen() {
   ) => {
     Alert.alert(
       "Seconde confirmation",
-      "Confirmer cette action ? V10-026 lancera la Sandbox puis vérifiera automatiquement le résultat.",
+      "Confirmer cette action ? V10-027 lancera la Sandbox, vérifiera le résultat puis enregistrera une preuve d'intégrité.",
       [
         {
           text: "Retour",
@@ -201,17 +201,17 @@ export default function ExecutionQueueScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        V10-026 ajoute une vérification
-        post-invocation. Après la Sandbox,
-        Rose contrôle que la simulation est
-        terminée et qu'aucune exécution
-        externe n'a eu lieu.
+        V10-027 ajoute un Evidence Ledger.
+        Après la vérification Sandbox, Rose
+        enregistre une preuve avec hash
+        d'intégrité pour conserver une trace
+        vérifiable de l'exécution simulée.
       </Text>
 
       {reviewMessage ? (
         <View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>
-            Post-Invocation Verification
+            Evidence Ledger
           </Text>
           <Text style={styles.reviewText}>
             {reviewMessage}
@@ -292,7 +292,7 @@ export default function ExecutionQueueScreen() {
               </Text>
 
               <Text style={styles.meta}>
-                Vérification post-invocation : OUI
+                Evidence Ledger : OUI
               </Text>
 
               <Text style={styles.date}>
@@ -328,8 +328,9 @@ export default function ExecutionQueueScreen() {
                 <>
                   <Text style={styles.safeNotice}>
                     Dry Run revu. La confirmation
-                    lancera la Sandbox puis sa
-                    vérification automatique.
+                    lancera la Sandbox, la
+                    vérification et l'enregistrement
+                    de preuve.
                   </Text>
 
                   <TouchableOpacity
@@ -339,7 +340,7 @@ export default function ExecutionQueueScreen() {
                     }
                   >
                     <Text style={styles.buttonText}>
-                      Confirmer + vérifier Sandbox
+                      Confirmer + vérifier + preuve
                     </Text>
                   </TouchableOpacity>
                 </>

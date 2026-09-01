@@ -10,6 +10,9 @@ import {
 import {
   appendInvocationVerification,
 } from "./VerificationStore";
+import {
+  createEvidenceFromVerification,
+} from "../evidence_ledger";
 
 export async function invokeAndVerifyRelease(
   record: ReleaseGateRecord
@@ -23,6 +26,7 @@ export async function invokeAndVerifyRelease(
     return {
       invocation,
       verification: null,
+      evidence: null,
       summary:
         invocation.summary,
     };
@@ -37,10 +41,18 @@ export async function invokeAndVerifyRelease(
     verification
   );
 
+  const evidence =
+    await createEvidenceFromVerification(
+      verification
+    );
+
   return {
     invocation,
     verification,
+    evidence,
     summary:
-      `${invocation.summary} ${verification.summary}`,
+      `${invocation.summary} ` +
+      `${verification.summary} ` +
+      `${evidence.summary}`,
   };
 }
