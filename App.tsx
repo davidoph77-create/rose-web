@@ -15,6 +15,7 @@ import AutonomieScreen from "./src/screens/AutonomieScreen";
 import TaskScreen from "./src/screens/TaskScreen";
 import ApprovalScreen from "./src/screens/ApprovalScreen";
 import ExecutionQueueScreen from "./src/screens/ExecutionQueueScreen";
+import EvidenceLedgerScreen from "./src/screens/EvidenceLedgerScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -73,7 +74,8 @@ type Tab =
   | "autonomie"
   | "tasks"
   | "approvals"
-  | "executionQueue";
+  | "executionQueue"
+  | "evidence";
 
 type Memoire = {
   id: number;
@@ -608,7 +610,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-027 - Evidence Ledger & Integrity Check
+  // Rose V10-028 - Evidence Ledger UI & Audit Viewer
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -637,14 +639,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-027",
+        appVersion: "V10-028",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-027] mode=${result.mode}`,
+      `[Rose V10-028] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -677,7 +679,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-027 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / evidence=ledger`
+        `V10-028 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / evidence=viewer`
       );
       parler(summary.text);
       setMessage("");
@@ -1328,6 +1330,11 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
             active={tab === "executionQueue"}
             onPress={() => setTab("executionQueue")}
           />
+          <TabButton
+            title="Preuves"
+            active={tab === "evidence"}
+            onPress={() => setTab("evidence")}
+          />
         </View>
 
         <ScrollView
@@ -1467,6 +1474,9 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
           )}
           {tab === "executionQueue" && (
             <ExecutionQueueScreen />
+          )}
+          {tab === "evidence" && (
+            <EvidenceLedgerScreen />
           )}
         </ScrollView>
       </View>
