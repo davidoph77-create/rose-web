@@ -14,6 +14,7 @@ import CoachScreen from "./src/screens/CoachScreen";
 import AutonomieScreen from "./src/screens/AutonomieScreen";
 import TaskScreen from "./src/screens/TaskScreen";
 import ApprovalScreen from "./src/screens/ApprovalScreen";
+import ExecutionQueueScreen from "./src/screens/ExecutionQueueScreen";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -71,7 +72,8 @@ type Tab =
   | "coach"
   | "autonomie"
   | "tasks"
-  | "approvals";
+  | "approvals"
+  | "executionQueue";
 
 type Memoire = {
   id: number;
@@ -606,7 +608,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-021 - Execution Queue & Dry Run Review
+  // Rose V10-022 - Review Queue UI
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -635,14 +637,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-021",
+        appVersion: "V10-022",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-021] mode=${result.mode}`,
+      `[Rose V10-022] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -675,7 +677,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-021 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / queue=dry-run`
+        `V10-022 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / queue=visible`
       );
       parler(summary.text);
       setMessage("");
@@ -1321,6 +1323,11 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
             active={tab === "approvals"}
             onPress={() => setTab("approvals")}
           />
+          <TabButton
+            title="ExÃ©cution"
+            active={tab === "executionQueue"}
+            onPress={() => setTab("executionQueue")}
+          />
         </View>
 
         <ScrollView
@@ -1457,6 +1464,9 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
           )}
           {tab === "approvals" && (
             <ApprovalScreen />
+          )}
+          {tab === "executionQueue" && (
+            <ExecutionQueueScreen />
           )}
         </ScrollView>
       </View>
