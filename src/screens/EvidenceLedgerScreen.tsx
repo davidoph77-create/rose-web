@@ -21,6 +21,14 @@ import type {
 import {
   verifyEvidenceIntegrity,
 } from "../core/v10/evidence_ledger/EvidenceIntegrityVerifier";
+import {
+  buildAuditReport,
+  formatAuditReport,
+  saveAuditReport,
+} from "../core/v10/audit_report";
+import type {
+  AuditReport,
+} from "../core/v10/audit_report";
 
 type IntegrityMap = Record<
   string,
@@ -45,6 +53,11 @@ export default function EvidenceLedgerScreen() {
     integrity,
     setIntegrity,
   ] = useState<IntegrityMap>({});
+
+  const [
+    auditReport,
+    setAuditReport,
+  ] = useState<AuditReport | null>(null);
 
   const charger = useCallback(
     async () => {
@@ -86,6 +99,14 @@ export default function EvidenceLedgerScreen() {
     setIntegrity(next);
   };
 
+  const genererAudit = async () => {
+    const report =
+      buildAuditReport(entries);
+
+    await saveAuditReport(report);
+    setAuditReport(report);
+  };
+
   const integrityStats = useMemo(() => {
     const values =
       Object.values(integrity);
@@ -119,10 +140,11 @@ export default function EvidenceLedgerScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        V10-029 ajoute une revalidation locale
-        du hash de chaque preuve. Rose peut
-        maintenant détecter une altération du
-        payload ou du hash stocké.
+        V10-030 ajoute un moteur de rapport
+        d'audit. Rose transforme maintenant
+        les preuves du ledger en synthèse
+        lisible avec intégrité, risque,
+        validation et sécurité.
       </Text>
 
       <View style={styles.stats}>
@@ -162,6 +184,15 @@ export default function EvidenceLedgerScreen() {
         </TouchableOpacity>
       </View>
 
+      <TouchableOpacity
+        style={styles.auditButton}
+        onPress={genererAudit}
+      >
+        <Text style={styles.buttonText}>
+          Générer rapport d'audit
+        </Text>
+      </TouchableOpacity>
+
       {integrityStats.checked > 0 ? (
         <View
           style={[
@@ -174,6 +205,24 @@ export default function EvidenceLedgerScreen() {
             {integrityStats.invalid === 0
               ? `Intégrité OK : ${integrityStats.valid}/${integrityStats.checked} preuves valides.`
               : `ALERTE : ${integrityStats.invalid} preuve(s) altérée(s) détectée(s).`}
+          </Text>
+        </View>
+      ) : null}
+
+      {auditReport ? (
+        <View
+          style={[
+            styles.auditCard,
+            auditReport.overallRisk === "high" &&
+              styles.auditCardHigh,
+          ]}
+        >
+          <Text style={styles.auditTitle}>
+            Audit Report Engine
+          </Text>
+
+          <Text style={styles.auditText}>
+            {formatAuditReport(auditReport)}
           </Text>
         </View>
       ) : null}
@@ -353,7 +402,7 @@ const styles = StyleSheet.create({
   buttonsRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   refreshButton: {
     backgroundColor: "#1d4ed8",
@@ -366,6 +415,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
+  },
+  auditButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#0f766e",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 12,
   },
   buttonText: {
     color: "#ffffff",
@@ -388,6 +445,28 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "800",
+  },
+  auditCard: {
+    backgroundColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#14b8a6",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  auditCardHigh: {
+    borderColor: "#ef4444",
+  },
+  auditTitle: {
+    color: "#5eead4",
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 7,
+  },
+  auditText: {
+    color: "#e2e8f0",
+    fontSize: 11,
+    lineHeight: 17,
   },
   empty: {
     backgroundColor: "#111827",

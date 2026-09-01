@@ -610,7 +610,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-029 - Evidence Revalidation & Tamper Detection
+  // Rose V10-030 - Audit Report Engine
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -639,14 +639,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-029",
+        appVersion: "V10-030",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-029] mode=${result.mode}`,
+      `[Rose V10-030] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -679,7 +679,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-029 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / evidence=revalidation`
+        `V10-030 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / audit=report`
       );
       parler(summary.text);
       setMessage("");
