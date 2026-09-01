@@ -21,6 +21,9 @@ import {
 import {
   syncApprovalExecutionBridge,
 } from "../core/v10/approval_execution_bridge";
+import {
+  processApprovedDecision,
+} from "../core/v10/controlled_executor";
 
 export default function ApprovalScreen() {
   const [
@@ -34,6 +37,11 @@ export default function ApprovalScreen() {
     loading,
     setLoading,
   ] = useState(false);
+
+  const [
+    executionMessage,
+    setExecutionMessage,
+  ] = useState("");
 
   const charger = useCallback(
     async () => {
@@ -62,13 +70,43 @@ export default function ApprovalScreen() {
       | "approved"
       | "rejected"
   ) => {
-    await setApprovalDecisionStatus(
-      id,
-      status,
-      "David"
-    );
+    const decision =
+      await setApprovalDecisionStatus(
+        id,
+        status,
+        "David"
+      );
 
     await syncApprovalExecutionBridge();
+
+    if (
+      decision &&
+      status === "approved"
+    ) {
+      const execution =
+        await processApprovedDecision(
+          decision
+        );
+
+      setExecutionMessage(
+        execution.summary
+      );
+    }
+
+    if (
+      decision &&
+      status === "rejected"
+    ) {
+      const execution =
+        await processApprovedDecision(
+          decision
+        );
+
+      setExecutionMessage(
+        execution.summary
+      );
+    }
+
     await charger();
   };
 
@@ -87,6 +125,7 @@ export default function ApprovalScreen() {
           onPress: async () => {
             await clearResolvedApprovals();
             await syncApprovalExecutionBridge();
+            setExecutionMessage("");
             await charger();
           },
         },
@@ -119,12 +158,22 @@ export default function ApprovalScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        Décisions humaines persistantes.
-        V10-018 renvoie maintenant ces
-        décisions au pipeline interne.
-        Aucune approbation n'exécute
-        automatiquement une action externe.
+        V10-019 ajoute un exécuteur contrôlé.
+        Une décision approuvée est transmise
+        au pipeline, mais toute action externe
+        réelle reste désactivée.
       </Text>
+
+      {executionMessage ? (
+        <View style={styles.executionCard}>
+          <Text style={styles.executionTitle}>
+            Controlled Action Executor
+          </Text>
+          <Text style={styles.executionText}>
+            {executionMessage}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.stats}>
         <Stat label="En attente" value={pending} />
@@ -235,10 +284,10 @@ export default function ApprovalScreen() {
 
               {item.status !== "pending" && (
                 <Text style={styles.safeNotice}>
-                  Décision enregistrée et
-                  synchronisée avec le pipeline
-                  interne V10. Aucune action
-                  externe n'a été exécutée.
+                  Décision synchronisée avec
+                  le pipeline V10. Exécution
+                  externe réelle toujours
+                  désactivée.
                 </Text>
               )}
             </View>
@@ -289,6 +338,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 12,
+  },
+  executionCard: {
+    backgroundColor: "#172554",
+    borderColor: "#2563eb",
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  executionTitle: {
+    color: "#93c5fd",
+    fontWeight: "900",
+    marginBottom: 5,
+  },
+  executionText: {
+    color: "#dbeafe",
+    fontSize: 12,
+    lineHeight: 18,
   },
   stats: {
     flexDirection: "row",
