@@ -603,7 +603,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-015 - Human Validation Gate
+  // Rose V10-016 - Approval Workflow
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -632,14 +632,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-015",
+        appVersion: "V10-016",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-015] mode=${result.mode}`,
+      `[Rose V10-016] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -662,7 +662,7 @@ export default function App() {
 
       setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-015 : ${summary.intent ?? "general"} / validations=${summary.pendingValidationCount ?? 0} / ${summary.validationSummary ?? "aucune validation"}`
+        `V10-016 : ${summary.intent ?? "general"} / validations=${summary.pendingValidationCount ?? 0} / approvals=${summary.pendingApprovalCount ?? 0}`
       );
       parler(summary.text);
       setMessage("");

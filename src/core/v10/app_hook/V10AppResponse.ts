@@ -9,6 +9,10 @@ import {
   buildValidationGate,
   formatValidationRequests,
 } from "../validation";
+import {
+  buildApprovalWorkflow,
+  formatApprovalWorkflow,
+} from "../approval";
 
 export type RoseV10AppSummary = {
   text: string;
@@ -22,6 +26,8 @@ export type RoseV10AppSummary = {
   agentChain?: string;
   validationSummary?: string;
   pendingValidationCount?: number;
+  approvalSummary?: string;
+  pendingApprovalCount?: number;
 };
 
 export function formatRoseV10AppResponse(
@@ -39,6 +45,9 @@ export function formatRoseV10AppResponse(
 
   const validationGate =
     buildValidationGate(orchestrated);
+
+  const approvalWorkflow =
+    buildApprovalWorkflow(validationGate);
 
   const intent =
     orchestrated.intent;
@@ -60,6 +69,9 @@ export function formatRoseV10AppResponse(
   const validationSummary =
     formatValidationRequests(validationGate);
 
+  const approvalSummary =
+    formatApprovalWorkflow(approvalWorkflow);
+
   const confidenceText =
     typeof confidence === "number"
       ? ` Confiance : ${Math.round(confidence * 100)} %.`
@@ -68,18 +80,19 @@ export function formatRoseV10AppResponse(
   const suggestedAction =
     buildSuggestedAction(
       intent,
-      requiresValidation
+      approvalWorkflow.pending.length
     );
 
   return {
     text:
-      `Rose V10 a exécuté son orchestration sécurisée. ` +
+      `Rose V10 a préparé son workflow d'approbation. ` +
       `Intention : ${intentLabelFr(intent)}. ` +
       `Agents : ${selectedAgents.join(", ") || "cognitive-agent"}.` +
       confidenceText +
       ` ${orchestrated.summary} ` +
       `Chaîne : ${agentChain}. ` +
-      `${validationSummary}` +
+      `${validationSummary} ` +
+      `${approvalSummary}` +
       (suggestedAction
         ? ` Proposition : ${suggestedAction}`
         : ""),
@@ -96,24 +109,31 @@ export function formatRoseV10AppResponse(
     validationSummary,
     pendingValidationCount:
       validationGate.blockedCount,
+    approvalSummary,
+    pendingApprovalCount:
+      approvalWorkflow.pending.length,
   };
 }
 
 function buildSuggestedAction(
   intent?: string,
-  requiresValidation = false
+  pendingApprovalCount = 0
 ): string | undefined {
-  if (requiresValidation) {
-    return "je peux préparer l'action, mais j'attends ta validation avant toute exécution externe.";
+  if (pendingApprovalCount > 0) {
+    return (
+      `une ou plusieurs actions attendent ton choix : ` +
+      `approuver ou refuser. ` +
+      `Aucune action externe ne sera exécutée automatiquement.`
+    );
   }
 
   switch (intent) {
     case "planning":
-      return "je peux continuer à structurer les prochaines étapes.";
+      return "je peux poursuivre la planification interne.";
     case "goal":
       return "je peux relier l'objectif au plan d'action.";
     case "business":
-      return "je peux poursuivre l'analyse interne de ton activité.";
+      return "je peux continuer l'analyse interne de ton activité.";
     case "memory":
       return "je peux relier cette information aux souvenirs utiles.";
     default:
