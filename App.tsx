@@ -603,7 +603,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-014 - Agent Execution Orchestrator
+  // Rose V10-015 - Human Validation Gate
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -632,14 +632,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-014",
+        appVersion: "V10-015",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-014] mode=${result.mode}`,
+      `[Rose V10-015] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -662,7 +662,7 @@ export default function App() {
 
       setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-014 : ${summary.intent ?? "general"} / ${summary.selectedAgents.join(", ") || "aucun agent"} / ${summary.orchestratorSummary ?? "orchestration exÃ©cutÃ©e"}`
+        `V10-015 : ${summary.intent ?? "general"} / validations=${summary.pendingValidationCount ?? 0} / ${summary.validationSummary ?? "aucune validation"}`
       );
       parler(summary.text);
       setMessage("");

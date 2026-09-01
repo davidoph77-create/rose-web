@@ -5,6 +5,10 @@ import {
   orchestrateExecution,
   formatMultiAgentChain,
 } from "../orchestrator";
+import {
+  buildValidationGate,
+  formatValidationRequests,
+} from "../validation";
 
 export type RoseV10AppSummary = {
   text: string;
@@ -16,6 +20,8 @@ export type RoseV10AppSummary = {
   executionSummary?: string;
   orchestratorSummary?: string;
   agentChain?: string;
+  validationSummary?: string;
+  pendingValidationCount?: number;
 };
 
 export function formatRoseV10AppResponse(
@@ -31,6 +37,9 @@ export function formatRoseV10AppResponse(
   const orchestrated =
     orchestrateExecution(execution);
 
+  const validationGate =
+    buildValidationGate(orchestrated);
+
   const intent =
     orchestrated.intent;
 
@@ -43,33 +52,34 @@ export function formatRoseV10AppResponse(
     orchestrated.selectedAgents;
 
   const requiresValidation =
-    orchestrated.requiresValidation;
+    validationGate.blockedCount > 0;
 
   const agentChain =
     formatMultiAgentChain(orchestrated);
+
+  const validationSummary =
+    formatValidationRequests(validationGate);
 
   const confidenceText =
     typeof confidence === "number"
       ? ` Confiance : ${Math.round(confidence * 100)} %.`
       : "";
 
-  const validationText =
-    requiresValidation
-      ? " Les actions externes restent bloquées jusqu’à validation."
-      : " Aucune action externe automatique n’a été exécutée.";
-
   const suggestedAction =
-    buildSuggestedAction(intent);
+    buildSuggestedAction(
+      intent,
+      requiresValidation
+    );
 
   return {
     text:
-      `Rose V10 a orchestré ses agents. ` +
+      `Rose V10 a exécuté son orchestration sécurisée. ` +
       `Intention : ${intentLabelFr(intent)}. ` +
       `Agents : ${selectedAgents.join(", ") || "cognitive-agent"}.` +
       confidenceText +
       ` ${orchestrated.summary} ` +
-      `Chaîne : ${agentChain}.` +
-      validationText +
+      `Chaîne : ${agentChain}. ` +
+      `${validationSummary}` +
       (suggestedAction
         ? ` Proposition : ${suggestedAction}`
         : ""),
@@ -83,27 +93,31 @@ export function formatRoseV10AppResponse(
     orchestratorSummary:
       orchestrated.summary,
     agentChain,
+    validationSummary,
+    pendingValidationCount:
+      validationGate.blockedCount,
   };
 }
 
 function buildSuggestedAction(
-  intent?: string
+  intent?: string,
+  requiresValidation = false
 ): string | undefined {
+  if (requiresValidation) {
+    return "je peux préparer l'action, mais j'attends ta validation avant toute exécution externe.";
+  }
+
   switch (intent) {
     case "planning":
-      return "je peux enchaîner mémoire, objectif et planification pour construire un plan plus complet.";
+      return "je peux continuer à structurer les prochaines étapes.";
     case "goal":
-      return "je peux relier l’objectif à un plan d’actions et à son suivi.";
-    case "calendar":
-      return "je peux préparer la chaîne planification → agenda, puis attendre ta validation.";
+      return "je peux relier l'objectif au plan d'action.";
     case "business":
-      return "je peux combiner mémoire entreprise, analyse et planification.";
-    case "web":
-      return "je peux préparer la recherche, puis attendre ta validation avant toute action externe.";
+      return "je peux poursuivre l'analyse interne de ton activité.";
     case "memory":
-      return "je peux relier cette information aux souvenirs utiles puis proposer la prochaine étape.";
+      return "je peux relier cette information aux souvenirs utiles.";
     default:
-      return "je peux poursuivre avec plusieurs agents V10 coordonnés.";
+      return "je peux poursuivre avec les agents V10 adaptés.";
   }
 }
 
