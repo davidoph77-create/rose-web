@@ -24,3 +24,4 @@ export * from "./controlled_executor";
 export * from "./execution_audit";
 export * from "./execution_queue";
 export * from "./release_gate";
+export * from "./adapter_registry";

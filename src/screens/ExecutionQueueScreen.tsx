@@ -26,6 +26,9 @@ import {
   prepareReleaseGate,
   updateReleaseGateStatus,
 } from "../core/v10/release_gate";
+import {
+  resolveReleaseToAdapter,
+} from "../core/v10/adapter_registry";
 
 export default function ExecutionQueueScreen() {
   const [
@@ -99,7 +102,7 @@ export default function ExecutionQueueScreen() {
   ) => {
     Alert.alert(
       "Seconde confirmation",
-      "Confirmer cette action pour le Release Gate ? Cette version reste en simulation : aucune action externe réelle ne sera exécutée.",
+      "Confirmer cette action pour le Release Gate ? V10-024 sélectionnera ensuite uniquement un adaptateur en mode simulation.",
       [
         {
           text: "Retour",
@@ -115,10 +118,20 @@ export default function ExecutionQueueScreen() {
                 "David"
               );
 
+            if (!result) {
+              setReviewMessage(
+                "Release Gate introuvable. Revois d'abord le Dry Run."
+              );
+              return;
+            }
+
+            const adapterResolution =
+              resolveReleaseToAdapter(
+                result
+              );
+
             setReviewMessage(
-              result
-                ? "Release Gate : CONFIRMÉ. Action prête pour une future phase d'exécution contrôlée, mais toujours en simulation dans V10-023."
-                : "Release Gate introuvable. Revois d'abord le Dry Run."
+              `Release Gate : CONFIRMÉ. ${adapterResolution.summary}`
             );
           },
         },
@@ -153,7 +166,7 @@ export default function ExecutionQueueScreen() {
             );
 
             setReviewMessage(
-              "Action annulée. Release Gate bloqué. Aucune action externe n'a été exécutée."
+              "Action annulée. Release Gate bloqué. Aucun adaptateur réel n'a été exécuté."
             );
 
             await charger();
@@ -188,17 +201,17 @@ export default function ExecutionQueueScreen() {
       </Text>
 
       <Text style={styles.subtitle}>
-        V10-023 ajoute un Release Gate
-        après le Dry Run Review. Une seconde
-        confirmation humaine est requise.
-        L'exécution externe réelle reste
-        désactivée.
+        V10-024 ajoute un Adapter Registry
+        et une Capability Matrix. Après le
+        Release Gate, Rose sélectionne le bon
+        adaptateur, mais tous les adaptateurs
+        externes restent en simulation.
       </Text>
 
       {reviewMessage ? (
         <View style={styles.reviewCard}>
           <Text style={styles.reviewTitle}>
-            Release Gate
+            Adapter Registry
           </Text>
           <Text style={styles.reviewText}>
             {reviewMessage}
@@ -314,8 +327,9 @@ export default function ExecutionQueueScreen() {
               {item.status === "reviewed" && (
                 <>
                   <Text style={styles.safeNotice}>
-                    Dry Run revu. Seconde confirmation
-                    requise avant toute future phase.
+                    Dry Run revu. Le Release Gate
+                    peut maintenant sélectionner
+                    un adaptateur simulé.
                   </Text>
 
                   <TouchableOpacity
@@ -333,7 +347,8 @@ export default function ExecutionQueueScreen() {
 
               {item.status === "cancelled" && (
                 <Text style={styles.cancelNotice}>
-                  Action annulée. Release Gate bloqué.
+                  Action annulée. Aucun adaptateur
+                  ne sera exécuté.
                 </Text>
               )}
             </View>
