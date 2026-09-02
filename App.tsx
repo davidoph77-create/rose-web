@@ -612,7 +612,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-039 - Real Calendar Provider Bridge
+  // Rose V10-040 - Calendar Read-Only Provider Core
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -641,14 +641,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-039",
+        appVersion: "V10-040",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-039] mode=${result.mode}`,
+      `[Rose V10-040] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
@@ -681,7 +681,7 @@ export default function App() {
       }
 setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-039 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / calendar-provider=ready`
+        `V10-040 : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / calendar-readonly=oauth-required`
       );
       parler(summary.text);
       setMessage("");

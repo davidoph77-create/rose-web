@@ -398,6 +398,35 @@ export default function AuditHistoryScreen() {
           Calendar connector remains controlled. Real external execution is still blocked.
         </Text>
       </View>
+      <View style={styles.calendarReadOnlyCard}>
+        <Text style={styles.sectionTitle}>Google Calendar Read-Only</Text>
+        <Text style={styles.sectionHint}>
+          The real Google Calendar provider is now implemented in read-only mode.
+          OAuth authentication is intentionally not stored in the source code.
+        </Text>
+
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Provider</Text>
+          <Text style={styles.calendarReadOnlyValue}>GOOGLE CALENDAR</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Capability</Text>
+          <Text style={styles.calendarReadOnlyValue}>READ ONLY</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>OAuth</Text>
+          <Text style={styles.calendarReadOnlyPending}>REQUIRED</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Calendar write</Text>
+          <Text style={styles.calendarReadOnlyPending}>DISABLED</Text>
+        </View>
+
+        <Text style={styles.calendarReadOnlySafety}>
+          V10-040 installs the real read-only Google Calendar provider code.
+          The next sub-step will connect OAuth without enabling any write action.
+        </Text>
+      </View>
       <View style={styles.calendarProviderCard}>
         <Text style={styles.sectionTitle}>Real Calendar Provider Bridge</Text>
         <Text style={styles.sectionHint}>
@@ -865,6 +894,35 @@ const styles = StyleSheet.create({
   },
   webConnectorSafety: {
     color: "#fbbf24",
+    fontSize: 10,
+    lineHeight: 16,
+    marginTop: 12,
+    fontWeight: "700",
+  },
+  calendarReadOnlyCard: {
+    backgroundColor: "#0b1220",
+    borderWidth: 1,
+    borderColor: "#60a5fa",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  calendarReadOnlyValue: {
+    color: "#93c5fd",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  calendarReadOnlyPending: {
+    color: "#fbbf24",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  calendarReadOnlySafety: {
+    color: "#cbd5e1",
     fontSize: 10,
     lineHeight: 16,
     marginTop: 12,
