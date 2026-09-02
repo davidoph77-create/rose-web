@@ -1,11 +1,7 @@
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
 import {
-  getGoogleCalendarOAuthConfig,
-  hasGoogleCalendarOAuthClientId,
-} from "./GoogleCalendarOAuthConfig";
-
-WebBrowser.maybeCompleteAuthSession();
+  GoogleSignin,
+  isSuccessResponse,
+} from "@react-native-google-signin/google-signin";
 
 export type GoogleCalendarOAuthResult = {
   ok: boolean;
@@ -13,74 +9,79 @@ export type GoogleCalendarOAuthResult = {
   error?: string;
 };
 
-const discovery = {
-  authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
-  tokenEndpoint: "https://oauth2.googleapis.com/token",
-  revocationEndpoint: "https://oauth2.googleapis.com/revoke",
-};
+const CALENDAR_READONLY_SCOPE =
+  "https://www.googleapis.com/auth/calendar.readonly";
+
+let configured = false;
+
+function ensureConfigured() {
+  if (configured) return;
+
+  GoogleSignin.configure({
+    scopes: [CALENDAR_READONLY_SCOPE],
+    offlineAccess: false,
+  });
+
+  configured = true;
+}
 
 export async function connectGoogleCalendarReadOnlyOAuth(): Promise<GoogleCalendarOAuthResult> {
-  const cfg = getGoogleCalendarOAuthConfig();
+  try {
+    ensureConfigured();
 
-  const clientId =
-    cfg.androidClientId ||
-    cfg.clientId ||
-    cfg.webClientId ||
-    cfg.iosClientId;
+    await GoogleSignin.hasPlayServices({
+      showPlayServicesUpdateDialog: true,
+    });
 
-  if (!hasGoogleCalendarOAuthClientId() || !clientId) {
+    const signInResult = await GoogleSignin.signIn();
+
+    if (!isSuccessResponse(signInResult)) {
+      return {
+        ok: false,
+        error: "Connexion Google annulée.",
+      };
+    }
+
+    const scopeResult = await GoogleSignin.addScopes({
+      scopes: [CALENDAR_READONLY_SCOPE],
+    });
+
+    if (scopeResult !== null && !isSuccessResponse(scopeResult)) {
+      return {
+        ok: false,
+        error: "Autorisation Google Calendar annulée.",
+      };
+    }
+
+    const tokens = await GoogleSignin.getTokens();
+
+    if (!tokens?.accessToken) {
+      return {
+        ok: false,
+        error: "Google connecté mais aucun access token Calendar n'a été reçu.",
+      };
+    }
+
+    return {
+      ok: true,
+      accessToken: tokens.accessToken,
+    };
+  } catch (error: any) {
     return {
       ok: false,
-      error: "Google OAuth client ID not configured.",
+      error:
+        error?.message ||
+        error?.code ||
+        "Erreur inconnue pendant la connexion Google Calendar.",
     };
   }
+}
 
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: "roseia",
-  });
-
-  const request = new AuthSession.AuthRequest({
-    clientId,
-    redirectUri,
-    scopes: [
-      "openid",
-      "profile",
-      "email",
-      "https://www.googleapis.com/auth/calendar.readonly",
-    ],
-    responseType: AuthSession.ResponseType.Token,
-    usePKCE: false,
-    extraParams: {
-      access_type: "online",
-      include_granted_scopes: "true",
-      prompt: "consent",
-    },
-  });
-
-  const result = await request.promptAsync(discovery);
-
-  if (result.type !== "success") {
-    return {
-      ok: false,
-      error: result.type === "error"
-        ? (result.params?.error_description || result.params?.error || "Google OAuth failed.")
-        : `Google OAuth cancelled (${result.type}).`,
-    };
+export async function disconnectGoogleCalendarOAuth(): Promise<void> {
+  try {
+    ensureConfigured();
+    await GoogleSignin.signOut();
+  } catch {
+    // Safe no-op.
   }
-
-  const accessToken =
-    result.authentication?.accessToken ||
-    result.params?.access_token;
-
-  if (!accessToken) {
-    return {
-      ok: false,
-      error: "Google OAuth succeeded but no access token was returned.",
-    };
-  }
-
-  return {
-    ok: true,
-    accessToken,
-  };
 }

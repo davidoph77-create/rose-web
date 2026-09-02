@@ -2,6 +2,7 @@
   "expo": {
     "name": "Rose IA",
     "slug": "rose-ia",
+    "scheme": "roseia",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -13,7 +14,8 @@
       "permissions": [
         "RECORD_AUDIO",
         "INTERNET",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -24,7 +26,10 @@
       "expo-web-browser"
     ],
     "extra": {
-      "googleWebClientId": "705330769466-7tcvltceskebfhekf1ggim89aeiej41l.apps.googleusercontent.com"
+      "googleWebClientId": "705330769466-7tcvltceskebfhekf1ggim89aeiej41l.apps.googleusercontent.com",
+      "eas": {
+        "projectId": "2df5ecc5-001f-4608-9053-98a53cc29285"
+      }
     }
   }
 }

@@ -612,7 +612,7 @@ export default function App() {
     }
   };
 
-  // Rose V10-040B - Google OAuth Read-Only Connection
+  // Rose V10-040C - Google OAuth Android Client + Connect Button
   // V10 est actif pour l'analyse/routage interne uniquement.
   // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
@@ -641,14 +641,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-040B",
+        appVersion: "V10-040C",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-040B] mode=${result.mode}`,
+      `[Rose V10-040C] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 

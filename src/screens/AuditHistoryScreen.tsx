@@ -1,4 +1,5 @@
 ﻿import React, { useCallback, useMemo, useState } from "react";
+import { GoogleCalendarOAuthButton } from "../core/v10/calendar_oauth_app";
 import {
   Alert,
   ScrollView,
@@ -398,6 +399,8 @@ export default function AuditHistoryScreen() {
           Calendar connector remains controlled. Real external execution is still blocked.
         </Text>
       </View>
+      <GoogleCalendarOAuthButton />
+
       <View style={styles.googleOAuthCard}>
         <Text style={styles.sectionTitle}>Google OAuth Read-Only Connection</Text>
         <Text style={styles.sectionHint}>
