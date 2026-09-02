@@ -2,6 +2,11 @@
 import { createRoseAppHook, formatRoseV10AppResponse } from "./src/core/v10/app_hook";
 import { recordApprovalRequest } from "./src/core/v10/approval_ui";
 import { answerGoogleCalendarQuestion } from "./src/core/v10/calendar_assistant";
+import {
+  createCalendarConversationContext,
+  prepareCalendarConversationQuery,
+  updateCalendarConversationContext,
+} from "./src/core/v10/calendar_conversation";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -18,7 +23,7 @@ import ApprovalScreen from "./src/screens/ApprovalScreen";
 import ExecutionQueueScreen from "./src/screens/ExecutionQueueScreen";
 import EvidenceLedgerScreen from "./src/screens/EvidenceLedgerScreen";
 import AuditHistoryScreen from "./src/screens/AuditHistoryScreen";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   SafeAreaView,
   View,
@@ -101,6 +106,10 @@ const CLOUD_ID = "rose_agent_system_v74_david";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("rose");
+
+  const calendarConversationRef = useRef(
+    createCalendarConversationContext()
+  );
 
   const [message, setMessage] = useState("");
   const [cloudStatus, setCloudStatus] = useState("Cloud en attente");
@@ -638,20 +647,38 @@ export default function App() {
 
     const messageEnvoye = message;
 
-    // Rose V10-041C - Natural Google Calendar questions (READ ONLY).
-    // This branch only performs an authorized Google Calendar GET.
+    // Rose V10-041E - Google Calendar Conversation Context (READ ONLY).
+    // Follow-up questions can reuse the last Calendar timeframe for 15 minutes.
+    // This branch performs only authorized Google Calendar GET operations.
     // It never creates, modifies or deletes an event.
     try {
-      const calendarAnswer = await answerGoogleCalendarQuestion(messageEnvoye);
+      const preparedCalendarQuery = prepareCalendarConversationQuery(
+        messageEnvoye,
+        calendarConversationRef.current
+      );
+
+      const calendarAnswer = await answerGoogleCalendarQuestion(
+        preparedCalendarQuery.query
+      );
 
       if (calendarAnswer.handled) {
+        calendarConversationRef.current = updateCalendarConversationContext(
+          calendarConversationRef.current,
+          {
+            originalMessage: messageEnvoye,
+            resolvedQuery: preparedCalendarQuery.query,
+            intent: calendarAnswer.intent,
+            eventCount: calendarAnswer.eventCount,
+          }
+        );
+
         const categorie = detecterCategorie(messageEnvoye);
         const importance = detecterImportance(messageEnvoye);
 
         ajouterMemoire(messageEnvoye, categorie, importance);
         setRoseReponse(calendarAnswer.text);
         ajouterJournal(
-          `V10-041C : Google Calendar READ ONLY / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount}`
+          `V10-041E : Google Calendar READ ONLY / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount} / context=${preparedCalendarQuery.usedContext ? "yes" : "no"}`
         );
         parler(calendarAnswer.text);
         setMessage("");
@@ -659,7 +686,7 @@ export default function App() {
       }
     } catch (calendarError: any) {
       console.log(
-        "[Rose V10-041C] Calendar assistant fallback:",
+        "[Rose V10-041E] Calendar conversation fallback:",
         calendarError?.message || calendarError
       );
       // Safe fallback: continue through the existing V10/V7.4 path.
@@ -669,14 +696,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-041C",
+        appVersion: "V10-041E",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-041C] mode=${result.mode}`,
+      `[Rose V10-041E] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
