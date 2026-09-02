@@ -5,7 +5,9 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "package": "com.davidoph.roseia",
       "permissions": [
@@ -18,7 +20,8 @@
       "@react-native-voice/voice",
       "expo-dev-client",
       "@react-native-google-signin/google-signin",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-web-browser"
     ],
     "extra": {
       "googleWebClientId": "705330769466-7tcvltceskebfhekf1ggim89aeiej41l.apps.googleusercontent.com"

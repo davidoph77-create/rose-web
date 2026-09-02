@@ -398,6 +398,35 @@ export default function AuditHistoryScreen() {
           Calendar connector remains controlled. Real external execution is still blocked.
         </Text>
       </View>
+      <View style={styles.googleOAuthCard}>
+        <Text style={styles.sectionTitle}>Google OAuth Read-Only Connection</Text>
+        <Text style={styles.sectionHint}>
+          OAuth engine installed for Google Calendar read-only access.
+          No client secret is stored in Rose and no Calendar write scope is requested.
+        </Text>
+
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>OAuth engine</Text>
+          <Text style={styles.googleOAuthReady}>READY</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Google scope</Text>
+          <Text style={styles.googleOAuthReady}>CALENDAR.READONLY</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Client ID</Text>
+          <Text style={styles.googleOAuthPending}>TO CONFIGURE</Text>
+        </View>
+        <View style={styles.readinessRow}>
+          <Text style={styles.readinessLabel}>Calendar write</Text>
+          <Text style={styles.googleOAuthPending}>DISABLED</Text>
+        </View>
+
+        <Text style={styles.googleOAuthSafety}>
+          Next step: enter the Google OAuth Android client ID, then Rose can open
+          the Google authorization screen and read upcoming events only.
+        </Text>
+      </View>
       <View style={styles.calendarReadOnlyCard}>
         <Text style={styles.sectionTitle}>Google Calendar Read-Only</Text>
         <Text style={styles.sectionHint}>
@@ -894,6 +923,35 @@ const styles = StyleSheet.create({
   },
   webConnectorSafety: {
     color: "#fbbf24",
+    fontSize: 10,
+    lineHeight: 16,
+    marginTop: 12,
+    fontWeight: "700",
+  },
+  googleOAuthCard: {
+    backgroundColor: "#0d1526",
+    borderWidth: 1,
+    borderColor: "#34d399",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  googleOAuthReady: {
+    color: "#6ee7b7",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  googleOAuthPending: {
+    color: "#fbbf24",
+    fontSize: 11,
+    fontWeight: "900",
+    textAlign: "right",
+    flex: 1,
+  },
+  googleOAuthSafety: {
+    color: "#cbd5e1",
     fontSize: 10,
     lineHeight: 16,
     marginTop: 12,
