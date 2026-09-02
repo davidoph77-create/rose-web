@@ -1,6 +1,7 @@
 ﻿import RoseScreen from "./src/screens/RoseScreen";
 import { createRoseAppHook, formatRoseV10AppResponse } from "./src/core/v10/app_hook";
 import { recordApprovalRequest } from "./src/core/v10/approval_ui";
+import { answerGoogleCalendarQuestion } from "./src/core/v10/calendar_assistant";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -637,18 +638,45 @@ export default function App() {
 
     const messageEnvoye = message;
 
+    // Rose V10-041C - Natural Google Calendar questions (READ ONLY).
+    // This branch only performs an authorized Google Calendar GET.
+    // It never creates, modifies or deletes an event.
+    try {
+      const calendarAnswer = await answerGoogleCalendarQuestion(messageEnvoye);
+
+      if (calendarAnswer.handled) {
+        const categorie = detecterCategorie(messageEnvoye);
+        const importance = detecterImportance(messageEnvoye);
+
+        ajouterMemoire(messageEnvoye, categorie, importance);
+        setRoseReponse(calendarAnswer.text);
+        ajouterJournal(
+          `V10-041C : Google Calendar READ ONLY / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount}`
+        );
+        parler(calendarAnswer.text);
+        setMessage("");
+        return;
+      }
+    } catch (calendarError: any) {
+      console.log(
+        "[Rose V10-041C] Calendar assistant fallback:",
+        calendarError?.message || calendarError
+      );
+      // Safe fallback: continue through the existing V10/V7.4 path.
+    }
+
     const result = await roseAppHook.run({
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-040C",
+        appVersion: "V10-041C",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-040C] mode=${result.mode}`,
+      `[Rose V10-041C] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
