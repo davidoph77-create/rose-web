@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { GoogleCalendarRealReadCard } from "../core/v10/calendar_real_read";
 
 type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 
@@ -400,6 +401,7 @@ export default function AuditHistoryScreen() {
         </Text>
       </View>
       <GoogleCalendarOAuthButton />
+      <GoogleCalendarRealReadCard />
 
       <View style={styles.googleOAuthCard}>
         <Text style={styles.sectionTitle}>Google OAuth Read-Only Connection</Text>
@@ -1137,3 +1139,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

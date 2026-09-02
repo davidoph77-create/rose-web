@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,6 +12,11 @@ import {
   deleteCalendarEvent,
   updateCalendarEventStatus,
 } from "../agents/calendarEngine";
+
+import {
+  AgendaCalendarItem,
+  refreshAgendaCalendarBridge,
+} from "../core/v10/calendar_agenda_bridge";
 
 type AgendaScreenProps = {
   calendarEvents: RoseCalendarEvent[];
@@ -25,6 +31,38 @@ export default function AgendaScreen({
   setCalendarEvents,
   regenererAgendaRose,
 }: AgendaScreenProps) {
+  const [googleEvents, setGoogleEvents] = useState<AgendaCalendarItem[]>([]);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | undefined>();
+
+  const refreshGoogleAgenda = useCallback(async () => {
+    try {
+      setGoogleLoading(true);
+      setGoogleError(undefined);
+      const snapshot = await refreshAgendaCalendarBridge(20);
+      setGoogleEvents(snapshot.items);
+      setGoogleError(snapshot.error);
+    } catch (error: any) {
+      setGoogleError(error?.message || "Impossible de lire Google Calendar.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshGoogleAgenda();
+  }, [refreshGoogleAgenda]);
+
+  const formatGoogleDate = (value?: string) => {
+    if (!value) return "Date non précisée";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString("fr-FR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
   const planifier = (id: string) => {
     setCalendarEvents(
       updateCalendarEventStatus(
@@ -69,6 +107,55 @@ export default function AgendaScreen({
       <Text style={styles.sectionTitle}>
         Agenda de Rose
       </Text>
+
+      <View style={styles.googleCard}>
+        <Text style={styles.cardTitle}>
+          Google Calendar — rendez-vous réels
+        </Text>
+        <Text style={styles.googleReadOnly}>LECTURE SEULE</Text>
+        <Text style={styles.text}>
+          Rose peut consulter ces rendez-vous Google, sans création,
+          modification ni suppression.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.googleButton}
+          onPress={refreshGoogleAgenda}
+          disabled={googleLoading}
+        >
+          {googleLoading ? (
+            <ActivityIndicator />
+          ) : (
+            <Text style={styles.mainButtonText}>Actualiser Google Calendar</Text>
+          )}
+        </TouchableOpacity>
+
+        {googleError ? (
+          <Text style={styles.errorText}>{googleError}</Text>
+        ) : null}
+
+        {!googleLoading && !googleError && googleEvents.length === 0 ? (
+          <Text style={styles.googleEmpty}>Aucun rendez-vous Google à venir.</Text>
+        ) : null}
+      </View>
+
+      {googleEvents.map((event) => (
+        <View key={`google-${event.id}`} style={styles.googleEventCard}>
+          <Text style={styles.cardTitle}>
+            {event.title || "Rendez-vous Google Calendar"}
+          </Text>
+          <Text style={styles.text}>Début : {formatGoogleDate(event.start)}</Text>
+          {event.end ? (
+            <Text style={styles.text}>Fin : {formatGoogleDate(event.end)}</Text>
+          ) : null}
+          {event.location ? (
+            <Text style={styles.text}>Lieu : {event.location}</Text>
+          ) : null}
+          <Text style={styles.googleSource}>
+            Source : Google Calendar • lecture seule
+          </Text>
+        </View>
+      ))}
 
       <View style={styles.card}>
         <Text style={styles.label}>
@@ -179,6 +266,60 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     marginBottom: 12,
+  },
+
+  googleCard: {
+    backgroundColor: "#0d1526",
+    borderWidth: 1,
+    borderColor: "#34d399",
+    borderRadius: 18,
+    padding: 15,
+    marginBottom: 12,
+  },
+
+  googleEventCard: {
+    backgroundColor: "#0d1526",
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    borderRadius: 18,
+    padding: 15,
+    marginBottom: 12,
+  },
+
+  googleReadOnly: {
+    color: "#6ee7b7",
+    fontSize: 12,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+
+  googleButton: {
+    backgroundColor: "#2563eb",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+
+  googleEmpty: {
+    color: "#94a3b8",
+    fontSize: 13,
+    marginTop: 10,
+  },
+
+  googleSource: {
+    color: "#6ee7b7",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+
+  errorText: {
+    color: "#fbbf24",
+    fontSize: 12,
+    marginTop: 10,
   },
 
   card: {
