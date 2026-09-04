@@ -7,12 +7,25 @@ export type CalendarConversationPeriod =
   | "upcoming"
   | null;
 
+export type CalendarConversationFocus =
+  | "list"
+  | "first"
+  | "next"
+  | "last"
+  | "time"
+  | "location"
+  | "duration"
+  | "count"
+  | null;
+
 export type CalendarConversationContext = {
   lastCalendarQuestion: string;
   lastResolvedQuery: string;
   lastIntent?: string;
   lastEventCount?: number;
   period: CalendarConversationPeriod;
+  focus: CalendarConversationFocus;
+  followUpDepth: number;
   updatedAt: number;
 };
 
@@ -20,6 +33,9 @@ export type PreparedCalendarConversationQuery = {
   query: string;
   usedContext: boolean;
   reason: string;
+  period: CalendarConversationPeriod;
+  focus: CalendarConversationFocus;
+  followUpDepth: number;
 };
 
 const CONTEXT_TTL_MS = 15 * 60 * 1000;
@@ -38,6 +54,8 @@ export function createCalendarConversationContext(): CalendarConversationContext
     lastCalendarQuestion: "",
     lastResolvedQuery: "",
     period: null,
+    focus: null,
+    followUpDepth: 0,
     updatedAt: 0,
   };
 }
@@ -45,9 +63,7 @@ export function createCalendarConversationContext(): CalendarConversationContext
 function detectPeriod(message: string): CalendarConversationPeriod {
   const m = normalize(message);
 
-  if (m.includes("apres-demain") || m.includes("apres demain")) {
-    return "day_after_tomorrow";
-  }
+  if (m.includes("apres-demain") || m.includes("apres demain")) return "day_after_tomorrow";
   if (m.includes("demain")) return "tomorrow";
   if (m.includes("aujourd'hui") || m.includes("aujourdhui")) return "today";
   if (m.includes("semaine prochaine")) return "next_week";
@@ -56,50 +72,107 @@ function detectPeriod(message: string): CalendarConversationPeriod {
     m.includes("prochain rendez-vous") ||
     m.includes("prochains rendez-vous") ||
     m.includes("a venir")
-  ) {
-    return "upcoming";
-  }
+  ) return "upcoming";
 
   return null;
 }
 
 function periodPhrase(period: CalendarConversationPeriod): string {
   switch (period) {
-    case "today":
-      return "aujourd'hui";
-    case "tomorrow":
-      return "demain";
-    case "day_after_tomorrow":
-      return "après-demain";
-    case "this_week":
-      return "cette semaine";
-    case "next_week":
-      return "la semaine prochaine";
-    case "upcoming":
-      return "à venir";
-    default:
-      return "";
+    case "today": return "aujourd'hui";
+    case "tomorrow": return "demain";
+    case "day_after_tomorrow": return "après-demain";
+    case "this_week": return "cette semaine";
+    case "next_week": return "la semaine prochaine";
+    case "upcoming": return "à venir";
+    default: return "";
   }
 }
 
 function isContextFresh(context: CalendarConversationContext): boolean {
+  return context.updatedAt > 0 && Date.now() - context.updatedAt <= CONTEXT_TTL_MS;
+}
+
+function detectFocus(message: string): CalendarConversationFocus {
+  const m = normalize(message);
+
+  if (/\b(combien|nombre de rendez-vous|nombre de rdv)\b/.test(m)) return "count";
+  if (/\b(quelle duree|duree|combien de temps)\b/.test(m)) return "duration";
+  if (/\b(ou est|ou se trouve|quelle adresse|a quelle adresse|quel lieu)\b/.test(m)) return "location";
+  if (/\b(a quelle heure|quelle heure|horaire)\b/.test(m)) return "time";
+  if (/\b(le premier|premier rendez-vous|premier rdv)\b/.test(m)) return "first";
+  if (/\b(le dernier|dernier rendez-vous|dernier rdv)\b/.test(m)) return "last";
+  if (/^(et apres|et ensuite|ensuite|et le suivant|le suivant|et le prochain|le prochain)\b/.test(m)) return "next";
+  if (/\b(rendez-vous|rdv|agenda|calendrier)\b/.test(m)) return "list";
+
+  return null;
+}
+
+function isFollowUp(message: string): boolean {
+  const m = normalize(message);
   return (
-    context.updatedAt > 0 &&
-    Date.now() - context.updatedAt <= CONTEXT_TTL_MS
+    /^(et apres|et ensuite|ensuite|et le suivant|le suivant|et le prochain|le prochain)\b/.test(m) ||
+    /\b(a quelle heure|quelle heure|horaire)\b/.test(m) ||
+    /\b(ou est|ou se trouve|quelle adresse|a quelle adresse|quel lieu)\b/.test(m) ||
+    /\b(le premier|premier rendez-vous|premier rdv)\b/.test(m) ||
+    /\b(le dernier|dernier rendez-vous|dernier rdv)\b/.test(m) ||
+    /\b(combien|nombre de rendez-vous|nombre de rdv)\b/.test(m) ||
+    /\b(quelle duree|duree|combien de temps)\b/.test(m)
   );
 }
 
-function isCalendarFollowUp(message: string): boolean {
-  const m = normalize(message);
+function buildContextualQuery(
+  original: string,
+  period: CalendarConversationPeriod,
+  focus: CalendarConversationFocus,
+  previousFocus: CalendarConversationFocus
+): string {
+  const suffix = periodPhrase(period);
+  const when = suffix ? ` ${suffix}` : "";
 
-  return (
-    /^(et apres|et ensuite|ensuite|et le suivant|le suivant|et le prochain|le prochain)\b/.test(m) ||
-    /\b(a quelle heure|quelle heure)\b/.test(m) ||
-    /\b(ou est|ou se trouve|quelle adresse|a quelle adresse)\b/.test(m) ||
-    /\b(le premier|premier rendez-vous|premier rdv)\b/.test(m) ||
-    /\b(le dernier|dernier rendez-vous|dernier rdv)\b/.test(m) ||
-    /\b(combien|quelle duree|duree)\b/.test(m)
-  );
+  switch (focus) {
+    case "first":
+      return `Quel est mon premier rendez-vous${when} ?`;
+
+    case "last":
+      return `Quel est mon dernier rendez-vous${when} ?`;
+
+    case "next":
+      return `Quels sont mes rendez-vous suivants${when} ?`;
+
+    case "time":
+      if (previousFocus === "last") {
+        return `À quelle heure est mon dernier rendez-vous${when} ?`;
+      }
+      if (previousFocus === "next") {
+        return `À quelle heure est mon prochain rendez-vous${when} ?`;
+      }
+      return `À quelle heure est mon premier rendez-vous${when} ?`;
+
+    case "location":
+      if (previousFocus === "last") {
+        return `Où se trouve mon dernier rendez-vous${when} ?`;
+      }
+      if (previousFocus === "next") {
+        return `Où se trouve mon prochain rendez-vous${when} ?`;
+      }
+      return `Où se trouve mon premier rendez-vous${when} ?`;
+
+    case "duration":
+      if (previousFocus === "last") {
+        return `Quelle est la durée de mon dernier rendez-vous${when} ?`;
+      }
+      if (previousFocus === "next") {
+        return `Quelle est la durée de mon prochain rendez-vous${when} ?`;
+      }
+      return `Quelle est la durée de mon premier rendez-vous${when} ?`;
+
+    case "count":
+      return `Combien ai-je de rendez-vous${when} ?`;
+
+    default:
+      return original;
+  }
 }
 
 export function prepareCalendarConversationQuery(
@@ -108,71 +181,46 @@ export function prepareCalendarConversationQuery(
 ): PreparedCalendarConversationQuery {
   const clean = message.trim();
   const explicitPeriod = detectPeriod(clean);
+  const detectedFocus = detectFocus(clean);
 
   if (explicitPeriod) {
     return {
       query: clean,
       usedContext: false,
       reason: "explicit-period",
+      period: explicitPeriod,
+      focus: detectedFocus || "list",
+      followUpDepth: 0,
     };
   }
 
-  if (!isCalendarFollowUp(clean) || !isContextFresh(context)) {
+  if (!isFollowUp(clean) || !isContextFresh(context)) {
     return {
       query: clean,
       usedContext: false,
-      reason: "no-context-needed",
+      reason: "standalone",
+      period: explicitPeriod,
+      focus: detectedFocus,
+      followUpDepth: 0,
     };
   }
 
-  const p = periodPhrase(context.period);
-  const suffix = p ? ` ${p}` : "";
-  const m = normalize(clean);
-
-  if (/\b(a quelle heure|quelle heure)\b/.test(m) && /\bpremier\b/.test(m)) {
-    return {
-      query: `À quelle heure est mon premier rendez-vous${suffix} ?`,
-      usedContext: true,
-      reason: "first-event-time",
-    };
-  }
-
-  if (/\b(ou est|ou se trouve|quelle adresse|a quelle adresse)\b/.test(m)) {
-    return {
-      query: `Où se trouve mon premier rendez-vous${suffix} ?`,
-      usedContext: true,
-      reason: "event-location",
-    };
-  }
-
-  if (/^(et apres|et ensuite|ensuite|et le suivant|le suivant|et le prochain|le prochain)\b/.test(m)) {
-    return {
-      query: `Quels sont mes rendez-vous suivants${suffix} ?`,
-      usedContext: true,
-      reason: "next-events",
-    };
-  }
-
-  if (/\b(le premier|premier rendez-vous|premier rdv)\b/.test(m)) {
-    return {
-      query: `Quel est mon premier rendez-vous${suffix} ?`,
-      usedContext: true,
-      reason: "first-event",
-    };
-  }
-
-  if (/\b(le dernier|dernier rendez-vous|dernier rdv)\b/.test(m)) {
-    return {
-      query: `Quel est mon dernier rendez-vous${suffix} ?`,
-      usedContext: true,
-      reason: "last-event",
-    };
-  }
+  const inheritedPeriod = context.period || "upcoming";
+  const focus = detectedFocus || "list";
+  const rewritten = buildContextualQuery(
+    clean,
+    inheritedPeriod,
+    focus,
+    context.focus
+  );
 
   return {
-    query: `${clean} Concernant mes rendez-vous${suffix}.`,
+    query: rewritten,
     usedContext: true,
-    reason: "generic-calendar-follow-up",
+    reason: `follow-up-${focus || "generic"}`,
+    period: inheritedPeriod,
+    focus,
+    followUpDepth: context.followUpDepth + 1,
   };
 }
 
@@ -185,18 +233,41 @@ export function updateCalendarConversationContext(
     eventCount?: number;
   }
 ): CalendarConversationContext {
-  const detected =
+  const period =
     detectPeriod(input.originalMessage) ||
     detectPeriod(input.resolvedQuery) ||
     previous.period ||
     "upcoming";
+
+  const focus =
+    detectFocus(input.originalMessage) ||
+    detectFocus(input.resolvedQuery) ||
+    previous.focus ||
+    "list";
+
+  const wasFollowUp = isFollowUp(input.originalMessage) && isContextFresh(previous);
 
   return {
     lastCalendarQuestion: input.originalMessage,
     lastResolvedQuery: input.resolvedQuery,
     lastIntent: input.intent,
     lastEventCount: input.eventCount,
-    period: detected,
+    period,
+    focus,
+    followUpDepth: wasFollowUp ? previous.followUpDepth + 1 : 0,
     updatedAt: Date.now(),
   };
+}
+
+export function formatCalendarConversationDiagnostic(
+  prepared: PreparedCalendarConversationQuery,
+  context: CalendarConversationContext
+): string {
+  return [
+    `context=${prepared.usedContext ? "yes" : "no"}`,
+    `reason=${prepared.reason}`,
+    `period=${prepared.period || context.period || "none"}`,
+    `focus=${prepared.focus || "none"}`,
+    `depth=${prepared.followUpDepth}`,
+  ].join(" / ");
 }

@@ -1,4 +1,4 @@
-﻿import RoseScreen from "./src/screens/RoseScreen";
+import RoseScreen from "./src/screens/RoseScreen";
 import { createRoseAppHook, formatRoseV10AppResponse } from "./src/core/v10/app_hook";
 import { recordApprovalRequest } from "./src/core/v10/approval_ui";
 import { answerGoogleCalendarQuestion } from "./src/core/v10/calendar_assistant";
@@ -6,6 +6,7 @@ import {
   createCalendarConversationContext,
   prepareCalendarConversationQuery,
   updateCalendarConversationContext,
+  formatCalendarConversationDiagnostic,
 } from "./src/core/v10/calendar_conversation";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
@@ -647,7 +648,7 @@ export default function App() {
 
     const messageEnvoye = message;
 
-    // Rose V10-041E - Google Calendar Conversation Context (READ ONLY).
+    // Rose V10-041F - Google Calendar Advanced Follow-up Context (READ ONLY).
     // Follow-up questions can reuse the last Calendar timeframe for 15 minutes.
     // This branch performs only authorized Google Calendar GET operations.
     // It never creates, modifies or deletes an event.
@@ -678,7 +679,7 @@ export default function App() {
         ajouterMemoire(messageEnvoye, categorie, importance);
         setRoseReponse(calendarAnswer.text);
         ajouterJournal(
-          `V10-041E : Google Calendar READ ONLY / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount} / context=${preparedCalendarQuery.usedContext ? "yes" : "no"}`
+          `V10-041F : Google Calendar READ ONLY / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount} / ${formatCalendarConversationDiagnostic(preparedCalendarQuery, calendarConversationRef.current)}`
         );
         parler(calendarAnswer.text);
         setMessage("");
@@ -686,7 +687,7 @@ export default function App() {
       }
     } catch (calendarError: any) {
       console.log(
-        "[Rose V10-041E] Calendar conversation fallback:",
+        "[Rose V10-041F] Calendar conversation fallback:",
         calendarError?.message || calendarError
       );
       // Safe fallback: continue through the existing V10/V7.4 path.
@@ -696,14 +697,14 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-041E",
+        appVersion: "V10-041F",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-041E] mode=${result.mode}`,
+      `[Rose V10-041F] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
