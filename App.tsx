@@ -1,4 +1,4 @@
-import RoseScreen from "./src/screens/RoseScreen";
+﻿import RoseScreen from "./src/screens/RoseScreen";
 import { createRoseAppHook, formatRoseV10AppResponse } from "./src/core/v10/app_hook";
 import { recordApprovalRequest } from "./src/core/v10/approval_ui";
 import { answerGoogleCalendarQuestion } from "./src/core/v10/calendar_assistant";
@@ -8,6 +8,9 @@ import {
   updateCalendarConversationContext,
   formatCalendarConversationDiagnostic,
 } from "./src/core/v10/calendar_conversation";
+import { validateCalendarResponse } from "./src/core/v10/calendar_response_validation";
+import { classifyCalendarQueryPriority } from "./src/core/v10/calendar_query_priority";
+import { classifyCalendarReadHardRoute } from "./src/core/v10/calendar_read_hard_route";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -90,7 +93,7 @@ type Memoire = {
   id: number;
   texte: string;
   categorie: string;
-  importance: "Normale" | "Importante" | "Longue durée";
+  importance: "Normale" | "Importante" | "Longue durÃ©e";
   date: string;
 };
 
@@ -122,70 +125,70 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState<RoseCalendarEvent[]>([]);
 
   const [roseReponse, setRoseReponse] = useState(
-    "Bonjour David. Je suis Rose Agent System V7.4 avec moteurs Tâches, Objectifs IA, Web, Décisions et Agenda."
+    "Bonjour David. Je suis Rose Agent System V7.4 avec moteurs TÃ¢ches, Objectifs IA, Web, DÃ©cisions et Agenda."
   );
     const [resumeRose, setResumeRose] = useState(
-    "Rose n’a pas encore généré de résumé."
+    "Rose nâ€™a pas encore gÃ©nÃ©rÃ© de rÃ©sumÃ©."
   );
 
   const [prioritesRose, setPrioritesRose] = useState<string[]>([
-    "Développer Rose IA",
-    "Atteindre 8000 € par mois",
+    "DÃ©velopper Rose IA",
+    "Atteindre 8000 â‚¬ par mois",
   ]);
 
   const [conseilsRose, setConseilsRose] = useState<string[]>([
-    "Utilise les onglets Tâches, Objectifs IA, Web, Décisions et Agenda.",
+    "Utilise les onglets TÃ¢ches, Objectifs IA, Web, DÃ©cisions et Agenda.",
   ]);
 
   const [objectifPrincipal, setObjectifPrincipal] = useState(
-    "Atteindre 8000 € par mois"
+    "Atteindre 8000 â‚¬ par mois"
   );
 
   const [profilDavid, setProfilDavid] = useState(
-    "David travaille dans la couverture/charpente, développe Rose IA et vise une progression personnelle et professionnelle."
+    "David travaille dans la couverture/charpente, dÃ©veloppe Rose IA et vise une progression personnelle et professionnelle."
   );
 
   const [memoireLongueDuree, setMemoireLongueDuree] = useState<string[]>([
-    "David développe Rose IA comme assistante personnelle évolutive.",
+    "David dÃ©veloppe Rose IA comme assistante personnelle Ã©volutive.",
   ]);
 
   const [journalRose, setJournalRose] = useState<string[]>([
-    "Rose Agent System V7.4 initialisé avec Calendar Engine.",
+    "Rose Agent System V7.4 initialisÃ© avec Calendar Engine.",
   ]);
 
   const [planActionRose, setPlanActionRose] = useState<string[]>([
-    "Suivre les missions générées par Rose.",
+    "Suivre les missions gÃ©nÃ©rÃ©es par Rose.",
     "Suivre les objectifs IA.",
-    "Planifier les événements importants.",
+    "Planifier les Ã©vÃ©nements importants.",
   ]);
 
   const [habitudesRose, setHabitudesRose] = useState<string[]>([
-    "Rose commence à observer les habitudes de David.",
+    "Rose commence Ã  observer les habitudes de David.",
   ]);
 
   const [coachEntreprise, setCoachEntreprise] = useState(
-    "Rose attend plus d’informations pour générer une analyse entreprise."
+    "Rose attend plus dâ€™informations pour gÃ©nÃ©rer une analyse entreprise."
   );
 
   const [actionsRecommandees, setActionsRecommandees] = useState<string[]>([
-    "Générer les missions Rose.",
-    "Générer les objectifs IA.",
-    "Préparer les événements agenda.",
+    "GÃ©nÃ©rer les missions Rose.",
+    "GÃ©nÃ©rer les objectifs IA.",
+    "PrÃ©parer les Ã©vÃ©nements agenda.",
   ]);
     const [syntheseHebdo, setSyntheseHebdo] = useState(
-    "Aucune synthèse hebdomadaire générée."
+    "Aucune synthÃ¨se hebdomadaire gÃ©nÃ©rÃ©e."
   );
 
   const [agentWebRose, setAgentWebRose] = useState<string[]>([
-    "Web Engine préparé : Rose prépare les recherches, David valide.",
+    "Web Engine prÃ©parÃ© : Rose prÃ©pare les recherches, David valide.",
   ]);
 
   const [agendaRose, setAgendaRose] = useState<string[]>([
-    "Agenda Engine préparé : Rose prépare les événements, David valide.",
+    "Agenda Engine prÃ©parÃ© : Rose prÃ©pare les Ã©vÃ©nements, David valide.",
   ]);
 
   const [autonomieRose, setAutonomieRose] = useState<string[]>([
-    "Autonomie contrôlée activée : Rose propose, David valide.",
+    "Autonomie contrÃ´lÃ©e activÃ©e : Rose propose, David valide.",
   ]);
 
   const [memoires, setMemoires] = useState<Memoire[]>([
@@ -193,14 +196,14 @@ export default function App() {
       id: 1,
       texte: "David travaille dans la couverture et la charpente.",
       categorie: "Entreprise",
-      importance: "Longue durée",
+      importance: "Longue durÃ©e",
       date: new Date().toLocaleDateString(),
     },
     {
       id: 2,
-      texte: "Objectif personnel : viser 8000 € par mois.",
+      texte: "Objectif personnel : viser 8000 â‚¬ par mois.",
       categorie: "Objectif",
-      importance: "Longue durée",
+      importance: "Longue durÃ©e",
       date: new Date().toLocaleDateString(),
     },
   ]);
@@ -208,15 +211,15 @@ export default function App() {
   const [objectifs, setObjectifs] = useState<Objectif[]>([
     {
       id: 1,
-      titre: "Atteindre 8000 € par mois",
-      cible: "8000 €/mois",
+      titre: "Atteindre 8000 â‚¬ par mois",
+      cible: "8000 â‚¬/mois",
       progression: 25,
       statut: "En cours",
     },
     {
       id: 2,
-      titre: "Développer Rose IA",
-      cible: "IA personnelle évolutive",
+      titre: "DÃ©velopper Rose IA",
+      cible: "IA personnelle Ã©volutive",
       progression: 75,
       statut: "En cours",
     },
@@ -315,7 +318,7 @@ export default function App() {
           if (data.data.agendaRose) setAgendaRose(data.data.agendaRose);
           if (data.data.autonomieRose) setAutonomieRose(data.data.autonomieRose);
 
-          setCloudStatus("Cloud chargé");
+          setCloudStatus("Cloud chargÃ©");
         }
       } catch (error) {
         setCloudStatus("Erreur cloud");
@@ -425,7 +428,7 @@ export default function App() {
           setCloudStatus("Erreur sauvegarde cloud");
           console.log("Erreur sauvegarde cloud:", error.message);
         } else {
-          setCloudStatus("Cloud synchronisé");
+          setCloudStatus("Cloud synchronisÃ©");
         }
       } catch (error) {
         setCloudStatus("Erreur cloud");
@@ -520,7 +523,7 @@ export default function App() {
       msg.includes("internet") ||
       msg.includes("recherche") ||
       msg.includes("prix") ||
-      msg.includes("matériaux") ||
+      msg.includes("matÃ©riaux") ||
       msg.includes("materiaux")
     ) {
       return "Web";
@@ -544,26 +547,26 @@ export default function App() {
       msg.includes("ia") ||
       msg.includes("autonome") ||
       msg.includes("apprendre") ||
-      msg.includes("mémoire") ||
+      msg.includes("mÃ©moire") ||
       msg.includes("intelligente")
     ) {
       return "Rose IA";
     }
 
-    return "Général";
+    return "GÃ©nÃ©ral";
   };
     const detecterImportance = (
     texte: string
-  ): "Normale" | "Importante" | "Longue durée" => {
+  ): "Normale" | "Importante" | "Longue durÃ©e" => {
     const msg = texte.toLowerCase();
 
     if (
-      msg.includes("longue durée") ||
+      msg.includes("longue durÃ©e") ||
       msg.includes("toujours") ||
-      msg.includes("à retenir") ||
+      msg.includes("Ã  retenir") ||
       msg.includes("important pour toujours")
     ) {
-      return "Longue durée";
+      return "Longue durÃ©e";
     }
 
     if (
@@ -577,7 +580,7 @@ export default function App() {
       msg.includes("client") ||
       msg.includes("chantier") ||
       msg.includes("web") ||
-      msg.includes("décision") ||
+      msg.includes("dÃ©cision") ||
       msg.includes("agenda") ||
       msg.includes("rappel") ||
       msg.includes("notaire") ||
@@ -596,15 +599,15 @@ export default function App() {
 
   const ajouterMemoire = (
     texte: string,
-    categorie = "Général",
-    importance: "Normale" | "Importante" | "Longue durée" = "Normale"
+    categorie = "GÃ©nÃ©ral",
+    importance: "Normale" | "Importante" | "Longue durÃ©e" = "Normale"
   ) => {
     if (!texte.trim()) return;
 
     if (memoireExisteDeja(texte)) {
-      setRoseReponse("Cette information existe déjà dans ma mémoire David.");
-      ajouterJournal("Doublon évité dans la mémoire.");
-      parler("Cette information existe déjà dans ma mémoire.");
+      setRoseReponse("Cette information existe dÃ©jÃ  dans ma mÃ©moire David.");
+      ajouterJournal("Doublon Ã©vitÃ© dans la mÃ©moire.");
+      parler("Cette information existe dÃ©jÃ  dans ma mÃ©moire.");
       return;
     }
 
@@ -618,14 +621,14 @@ export default function App() {
 
     setMemoires((prev) => [nouvelleMemoire, ...prev]);
 
-    if (importance === "Longue durée") {
+    if (importance === "Longue durÃ©e") {
       setMemoireLongueDuree((prev) => [texte, ...prev.slice(0, 29)]);
     }
   };
 
   // Rose V10-040C - Google OAuth Android Client + Connect Button
   // V10 est actif pour l'analyse/routage interne uniquement.
-  // Aucune autonomie ni action externe automatique n'est autorisÃ©e.
+  // Aucune autonomie ni action externe automatique n'est autorisÃƒÂ©e.
   // En cas d'erreur, le hook retombe automatiquement sur V7.4.
   const roseAppHook = useMemo(
     () =>
@@ -648,17 +651,81 @@ export default function App() {
 
     const messageEnvoye = message;
 
-    // Rose V10-041F - Google Calendar Advanced Follow-up Context (READ ONLY).
-    // Follow-up questions can reuse the last Calendar timeframe for 15 minutes.
-    // This branch performs only authorized Google Calendar GET operations.
-    // It never creates, modifies or deletes an event.
     try {
       const preparedCalendarQuery = prepareCalendarConversationQuery(
         messageEnvoye,
         calendarConversationRef.current
       );
 
+      const hardCalendarRoute = classifyCalendarReadHardRoute(
+        messageEnvoye,
+        preparedCalendarQuery.query
+      );
+
+      if (hardCalendarRoute.isCalendarRead) {
+        console.log(
+          `[Rose V10-041J] CALENDAR READ HARD ROUTE / ${hardCalendarRoute.reason}`
+        );
+
+        const calendarAnswer = await answerGoogleCalendarQuestion(
+          preparedCalendarQuery.query
+        );
+
+        if (calendarAnswer.handled) {
+          calendarConversationRef.current = updateCalendarConversationContext(
+            calendarConversationRef.current,
+            {
+              originalMessage: messageEnvoye,
+              resolvedQuery: preparedCalendarQuery.query,
+              intent: calendarAnswer.intent,
+              eventCount: calendarAnswer.eventCount,
+            }
+          );
+
+          const categorie = detecterCategorie(messageEnvoye);
+          const importance = detecterImportance(messageEnvoye);
+
+          ajouterMemoire(messageEnvoye, categorie, importance);
+
+          const validatedCalendarResponse = validateCalendarResponse({
+            originalMessage: messageEnvoye,
+            resolvedQuery: preparedCalendarQuery.query,
+            answerText: calendarAnswer.text,
+            intent: calendarAnswer.intent,
+            eventCount: calendarAnswer.eventCount,
+          });
+
+          setRoseReponse(validatedCalendarResponse.normalizedText);
+          ajouterJournal(
+            `V10-041J : Google Calendar READ ONLY / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount} / ${validatedCalendarResponse.diagnostic} / ${formatCalendarConversationDiagnostic(preparedCalendarQuery, calendarConversationRef.current)}`
+          );
+          parler(validatedCalendarResponse.normalizedText);
+          setMessage("");
+          return;
+        }
+
+        const safeText =
+          "Je reconnais une question de consultation de ton agenda, mais Google Calendar n'a pas pu fournir de réponse exploitable. Aucune création ni modification d'événement ne sera préparée.";
+
+        setRoseReponse(safeText);
+        ajouterJournal(
+          `V10-041J : Calendar READ HARD ROUTE / handled=false / ${hardCalendarRoute.reason} / no-action-routing`
+        );
+        parler(safeText);
+        setMessage("");
+        console.log(
+          "[Rose V10-041J] CALENDAR READ HARD ROUTE / handled=false / blocked"
+        );
+        return;
+      }
+
+      // Secondary compatibility guard from V10-041H.
       const calendarAnswer = await answerGoogleCalendarQuestion(
+        preparedCalendarQuery.query
+      );
+
+      const calendarPriority = classifyCalendarQueryPriority(
+        messageEnvoye,
         preparedCalendarQuery.query
       );
 
@@ -677,39 +744,59 @@ export default function App() {
         const importance = detecterImportance(messageEnvoye);
 
         ajouterMemoire(messageEnvoye, categorie, importance);
-        setRoseReponse(calendarAnswer.text);
+
+        const validatedCalendarResponse = validateCalendarResponse({
+          originalMessage: messageEnvoye,
+          resolvedQuery: preparedCalendarQuery.query,
+          answerText: calendarAnswer.text,
+          intent: calendarAnswer.intent,
+          eventCount: calendarAnswer.eventCount,
+        });
+
+        setRoseReponse(validatedCalendarResponse.normalizedText);
         ajouterJournal(
-          `V10-041F : Google Calendar READ ONLY / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount} / ${formatCalendarConversationDiagnostic(preparedCalendarQuery, calendarConversationRef.current)}`
+          `V10-041J : Google Calendar compatibility READ / ${calendarAnswer.intent} / events=${calendarAnswer.eventCount}`
         );
-        parler(calendarAnswer.text);
+        parler(validatedCalendarResponse.normalizedText);
         setMessage("");
+        return;
+      }
+
+      if (calendarPriority.isReadOnlyCalendarQuery) {
+        const safeText =
+          "Je reconnais une question de consultation de ton agenda, mais je n'ai pas pu lire Google Calendar pour cette demande. Je ne préparerai aucune création ni modification d'événement à partir de cette question.";
+
+        setRoseReponse(safeText);
+        ajouterJournal(
+          `V10-041J : Calendar READ compatibility guard / handled=false / ${calendarPriority.reason} / no-action-routing`
+        );
+        parler(safeText);
+        setMessage("");
+        console.log("[Rose V10-041J] calendar-read compatibility guard");
         return;
       }
     } catch (calendarError: any) {
       console.log(
-        "[Rose V10-041F] Calendar conversation fallback:",
+        "[Rose V10-041J] Calendar conversation fallback:",
         calendarError?.message || calendarError
       );
-      // Safe fallback: continue through the existing V10/V7.4 path.
     }
 
     const result = await roseAppHook.run({
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-041F",
+        appVersion: "V10-041J",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
     });
 
     console.log(
-      `[Rose V10-041F] mode=${result.mode}`,
+      `[Rose V10-041J] mode=${result.mode}`,
       result.v10Error ? `fallback=${result.v10Error}` : ""
     );
 
-    // En mode V10, on conserve les comportements sÃ»rs de l'app :
-    // mÃ©morisation locale/cloud, journal, TTS et remise Ã  zÃ©ro du champ.
     if (result.mode === "v10") {
       const categorie = detecterCategorie(messageEnvoye);
       const importance = detecterImportance(messageEnvoye);
@@ -720,24 +807,19 @@ export default function App() {
         importance
       );
 
-      const summary =
-        formatRoseV10AppResponse(
-          result.value
-        );
+      const summary = formatRoseV10AppResponse(result.value);
 
-      
-      if (
-        (summary.pendingApprovalCount ?? 0) > 0
-      ) {
+      if ((summary.pendingApprovalCount ?? 0) > 0) {
         await recordApprovalRequest({
           message: messageEnvoye,
           intent: summary.intent,
           agents: summary.selectedAgents,
         });
       }
-setRoseReponse(summary.text);
+
+      setRoseReponse(summary.text);
       ajouterJournal(
-        `V10-040B : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0} / google-oauth=ready-client-id-required`
+        `V10-041J : ${summary.intent ?? "general"} / approvals=${summary.pendingApprovalCount ?? 0}`
       );
       parler(summary.text);
       setMessage("");
@@ -751,16 +833,16 @@ setRoseReponse(summary.text);
 
     ajouterMemoire(message, categorie, importance);
 
-    let reponse = "J’ai mémorisé cette information.";
+    let reponse = "Jâ€™ai mÃ©morisÃ© cette information.";
 
-    if (categorie === "Objectif") reponse = "J’ai détecté un objectif important.";
-    if (categorie === "Entreprise") reponse = "J’ai détecté une information liée à ton entreprise.";
-    if (categorie === "Web") reponse = "J’ai détecté une demande liée au web.";
-    if (categorie === "Agenda") reponse = "J’ai détecté une information liée à l’agenda.";
-    if (categorie === "Rose IA") reponse = "Je comprends. Tu veux me faire évoluer progressivement.";
+    if (categorie === "Objectif") reponse = "Jâ€™ai dÃ©tectÃ© un objectif important.";
+    if (categorie === "Entreprise") reponse = "Jâ€™ai dÃ©tectÃ© une information liÃ©e Ã  ton entreprise.";
+    if (categorie === "Web") reponse = "Jâ€™ai dÃ©tectÃ© une demande liÃ©e au web.";
+    if (categorie === "Agenda") reponse = "Jâ€™ai dÃ©tectÃ© une information liÃ©e Ã  lâ€™agenda.";
+    if (categorie === "Rose IA") reponse = "Je comprends. Tu veux me faire Ã©voluer progressivement.";
 
     setRoseReponse(reponse);
-    ajouterJournal(`Mémoire ajoutée : ${categorie} / ${importance}`);
+    ajouterJournal(`MÃ©moire ajoutÃ©e : ${categorie} / ${importance}`);
     parler(reponse);
     setMessage("");
   };
@@ -768,78 +850,78 @@ setRoseReponse(summary.text);
     const importantes = memoires.filter((m) => m.importance !== "Normale");
 
     const resume = `
-Rose possède ${memoires.length} souvenirs.
-${importantes.length} sont importants ou longue durée.
+Rose possÃ¨de ${memoires.length} souvenirs.
+${importantes.length} sont importants ou longue durÃ©e.
 Objectif principal : ${objectifPrincipal}.
 Missions actives : ${roseTasks.filter((t) => t.status !== "done").length}.
 Objectifs IA : ${roseGoals.length}.
-Recherches Web préparées : ${webRequests.length}.
-Décisions proposées : ${roseDecisions.length}.
-Événements Agenda : ${calendarEvents.length}.
+Recherches Web prÃ©parÃ©es : ${webRequests.length}.
+DÃ©cisions proposÃ©es : ${roseDecisions.length}.
+Ã‰vÃ©nements Agenda : ${calendarEvents.length}.
 `;
 
     setResumeRose(resume);
-    setRoseReponse("Résumé généré.");
-    ajouterJournal("Résumé V7.4 généré.");
-    parler("Résumé généré.");
+    setRoseReponse("RÃ©sumÃ© gÃ©nÃ©rÃ©.");
+    ajouterJournal("RÃ©sumÃ© V7.4 gÃ©nÃ©rÃ©.");
+    parler("RÃ©sumÃ© gÃ©nÃ©rÃ©.");
   };
 
   const genererPrioritesRose = () => {
     const nouvellesPriorites: string[] = [];
 
     if (memoires.some((m) => m.categorie === "Objectif")) {
-      nouvellesPriorites.push("Suivre l’objectif principal.");
+      nouvellesPriorites.push("Suivre lâ€™objectif principal.");
     }
 
     if (roseTasks.length > 0) {
-      nouvellesPriorites.push("Suivre les missions générées par Rose.");
+      nouvellesPriorites.push("Suivre les missions gÃ©nÃ©rÃ©es par Rose.");
     }
 
     if (roseGoals.length > 0) {
-      nouvellesPriorites.push("Suivre les objectifs IA générés par Rose.");
+      nouvellesPriorites.push("Suivre les objectifs IA gÃ©nÃ©rÃ©s par Rose.");
     }
 
     if (webRequests.length > 0) {
-      nouvellesPriorites.push("Valider ou annuler les recherches Web préparées.");
+      nouvellesPriorites.push("Valider ou annuler les recherches Web prÃ©parÃ©es.");
     }
 
     if (roseDecisions.length > 0) {
-      nouvellesPriorites.push("Valider ou refuser les décisions proposées.");
+      nouvellesPriorites.push("Valider ou refuser les dÃ©cisions proposÃ©es.");
     }
 
     if (calendarEvents.length > 0) {
-      nouvellesPriorites.push("Planifier les événements importants dans l’agenda.");
+      nouvellesPriorites.push("Planifier les Ã©vÃ©nements importants dans lâ€™agenda.");
     }
 
     if (nouvellesPriorites.length === 0) {
-      nouvellesPriorites.push("Enrichir la mémoire de Rose.");
+      nouvellesPriorites.push("Enrichir la mÃ©moire de Rose.");
     }
 
     setPrioritesRose(nouvellesPriorites);
-    setRoseReponse("Priorités mises à jour.");
-    ajouterJournal("Priorités V7.4 mises à jour.");
-    parler("Mes priorités sont mises à jour.");
+    setRoseReponse("PrioritÃ©s mises Ã  jour.");
+    ajouterJournal("PrioritÃ©s V7.4 mises Ã  jour.");
+    parler("Mes prioritÃ©s sont mises Ã  jour.");
   };
 
   const genererConseilsRose = () => {
     const conseils: string[] = [
-      "Utilise l’onglet Tâches pour suivre les missions.",
-      "Utilise l’onglet Objectifs IA pour suivre les grands objectifs.",
-      "Utilise l’onglet Web pour préparer les recherches avant validation.",
-      "Utilise l’onglet Décisions pour comprendre les recommandations.",
-      "Utilise l’onglet Agenda pour préparer les rendez-vous et rappels.",
-      "Continue à valider les actions importantes avant que Rose agisse.",
+      "Utilise lâ€™onglet TÃ¢ches pour suivre les missions.",
+      "Utilise lâ€™onglet Objectifs IA pour suivre les grands objectifs.",
+      "Utilise lâ€™onglet Web pour prÃ©parer les recherches avant validation.",
+      "Utilise lâ€™onglet DÃ©cisions pour comprendre les recommandations.",
+      "Utilise lâ€™onglet Agenda pour prÃ©parer les rendez-vous et rappels.",
+      "Continue Ã  valider les actions importantes avant que Rose agisse.",
     ];
 
     setConseilsRose(conseils);
-    setRoseReponse("Conseils générés.");
-    ajouterJournal("Conseils V7.4 générés.");
-    parler("J’ai généré mes conseils.");
+    setRoseReponse("Conseils gÃ©nÃ©rÃ©s.");
+    ajouterJournal("Conseils V7.4 gÃ©nÃ©rÃ©s.");
+    parler("Jâ€™ai gÃ©nÃ©rÃ© mes conseils.");
   };
     const definirObjectifPrincipal = () => {
     if (objectifs.length === 0) {
-      setObjectifPrincipal("Aucun objectif principal défini.");
-      parler("Aucun objectif principal défini.");
+      setObjectifPrincipal("Aucun objectif principal dÃ©fini.");
+      parler("Aucun objectif principal dÃ©fini.");
       return;
     }
 
@@ -847,14 +929,14 @@ Décisions proposées : ${roseDecisions.length}.
       objectifs.find((o) => o.progression < 100) || objectifs[0];
 
     setObjectifPrincipal(objectifPrioritaire.titre);
-    setRoseReponse("Objectif principal détecté.");
+    setRoseReponse("Objectif principal dÃ©tectÃ©.");
     ajouterJournal(`Objectif principal : ${objectifPrioritaire.titre}`);
     parler(`Ton objectif principal est ${objectifPrioritaire.titre}`);
   };
 
   const genererSyntheseHebdo = () => {
     const longues = memoires.filter(
-      (m) => m.importance === "Longue durée"
+      (m) => m.importance === "Longue durÃ©e"
     );
 
     const importantes = memoires.filter(
@@ -883,117 +965,117 @@ Décisions proposées : ${roseDecisions.length}.
         event.status === "scheduled"
     );
 
-    const synthese = `Synthèse hebdomadaire Rose :
+    const synthese = `SynthÃ¨se hebdomadaire Rose :
 - Souvenirs totaux : ${memoires.length}.
-- Souvenirs longue durée : ${longues.length}.
+- Souvenirs longue durÃ©e : ${longues.length}.
 - Souvenirs importants : ${importantes.length}.
 - Missions actives : ${tasksActives.length}.
 - Objectifs IA actifs : ${goalsActifs.length}.
 - Recherches Web en attente : ${webEnAttente.length}.
-- Décisions proposées : ${decisionsProposees.length}.
-- Événements agenda à suivre : ${evenementsAPlanifier.length}.
+- DÃ©cisions proposÃ©es : ${decisionsProposees.length}.
+- Ã‰vÃ©nements agenda Ã  suivre : ${evenementsAPlanifier.length}.
 - Objectif principal : ${objectifPrincipal}.
-- Action recommandée : avancer sur les missions prioritaires, valider les décisions utiles et planifier les événements importants.`;
+- Action recommandÃ©e : avancer sur les missions prioritaires, valider les dÃ©cisions utiles et planifier les Ã©vÃ©nements importants.`;
 
     setSyntheseHebdo(synthese);
-    setRoseReponse("Synthèse hebdomadaire générée.");
-    ajouterJournal("Synthèse hebdomadaire V7.4 générée.");
-    parler("J’ai généré la synthèse hebdomadaire.");
+    setRoseReponse("SynthÃ¨se hebdomadaire gÃ©nÃ©rÃ©e.");
+    ajouterJournal("SynthÃ¨se hebdomadaire V7.4 gÃ©nÃ©rÃ©e.");
+    parler("Jâ€™ai gÃ©nÃ©rÃ© la synthÃ¨se hebdomadaire.");
   };
 
   const genererAgentWeb = () => {
     setAgentWebRose([
-      "Web Engine actif : Rose prépare les recherches, David valide.",
-      "Recherche possible : matériaux, couverture, charpente, aides, immobilier et entreprise.",
-      "Sécurité : aucune action externe sans validation.",
+      "Web Engine actif : Rose prÃ©pare les recherches, David valide.",
+      "Recherche possible : matÃ©riaux, couverture, charpente, aides, immobilier et entreprise.",
+      "SÃ©curitÃ© : aucune action externe sans validation.",
     ]);
 
-    setRoseReponse("Agent web préparé.");
-    ajouterJournal("Agent web V7.4 préparé.");
-    parler("Mon agent web est préparé.");
+    setRoseReponse("Agent web prÃ©parÃ©.");
+    ajouterJournal("Agent web V7.4 prÃ©parÃ©.");
+    parler("Mon agent web est prÃ©parÃ©.");
   };
     const genererAgendaRose = () => {
     setAgendaRose([
-      "Calendar Engine actif : Rose prépare les événements, David valide.",
-      "Rose peut préparer les rendez-vous chantier, client, banque, notaire et maison.",
-      "Connexion Google Calendar réelle prévue dans une prochaine étape.",
+      "Calendar Engine actif : Rose prÃ©pare les Ã©vÃ©nements, David valide.",
+      "Rose peut prÃ©parer les rendez-vous chantier, client, banque, notaire et maison.",
+      "Connexion Google Calendar rÃ©elle prÃ©vue dans une prochaine Ã©tape.",
     ]);
 
-    setRoseReponse("Agenda Rose mis à jour.");
-    ajouterJournal("Agenda V7.4 mis à jour.");
-    parler("Mon agenda intelligent est mis à jour.");
+    setRoseReponse("Agenda Rose mis Ã  jour.");
+    ajouterJournal("Agenda V7.4 mis Ã  jour.");
+    parler("Mon agenda intelligent est mis Ã  jour.");
   };
 
   const genererAutonomieRose = () => {
     setAutonomieRose([
       "Rose peut proposer une action automatiquement.",
-      "Rose doit attendre la validation de David avant d’agir.",
-      "Rose peut créer des missions via Task Engine.",
-      "Rose peut créer des objectifs via Goal Engine.",
-      "Rose peut préparer des recherches via Web Engine.",
-      "Rose peut proposer des décisions via Decision Engine.",
-      "Rose peut préparer des événements via Calendar Engine.",
+      "Rose doit attendre la validation de David avant dâ€™agir.",
+      "Rose peut crÃ©er des missions via Task Engine.",
+      "Rose peut crÃ©er des objectifs via Goal Engine.",
+      "Rose peut prÃ©parer des recherches via Web Engine.",
+      "Rose peut proposer des dÃ©cisions via Decision Engine.",
+      "Rose peut prÃ©parer des Ã©vÃ©nements via Calendar Engine.",
       "Rose ne modifie jamais son code seule sans confirmation.",
     ]);
 
-    setRoseReponse("Autonomie contrôlée mise à jour.");
-    ajouterJournal("Autonomie V7.4 mise à jour.");
-    parler("Mon autonomie contrôlée est mise à jour.");
+    setRoseReponse("Autonomie contrÃ´lÃ©e mise Ã  jour.");
+    ajouterJournal("Autonomie V7.4 mise Ã  jour.");
+    parler("Mon autonomie contrÃ´lÃ©e est mise Ã  jour.");
   };
 
   const genererProfilDavid = () => {
     const profil = `Profil David :
-- Métier : couverture / charpente.
+- MÃ©tier : couverture / charpente.
 - Objectif principal : ${objectifPrincipal}.
-- Mémoires totales : ${memoires.length}.
-- Mémoires longue durée : ${memoireLongueDuree.length}.
+- MÃ©moires totales : ${memoires.length}.
+- MÃ©moires longue durÃ©e : ${memoireLongueDuree.length}.
 - Missions Rose : ${roseTasks.length}.
 - Objectifs IA : ${roseGoals.length}.
-- Recherches Web préparées : ${webRequests.length}.
-- Décisions proposées : ${roseDecisions.length}.
-- Événements Agenda : ${calendarEvents.length}.
-Rose doit aider David à progresser, décider, se souvenir, structurer ses priorités et organiser les événements importants.`;
+- Recherches Web prÃ©parÃ©es : ${webRequests.length}.
+- DÃ©cisions proposÃ©es : ${roseDecisions.length}.
+- Ã‰vÃ©nements Agenda : ${calendarEvents.length}.
+Rose doit aider David Ã  progresser, dÃ©cider, se souvenir, structurer ses prioritÃ©s et organiser les Ã©vÃ©nements importants.`;
 
     setProfilDavid(profil);
-    setRoseReponse("Profil David mis à jour.");
-    ajouterJournal("Profil David V7.4 mis à jour.");
-    parler("J’ai mis à jour ton profil.");
+    setRoseReponse("Profil David mis Ã  jour.");
+    ajouterJournal("Profil David V7.4 mis Ã  jour.");
+    parler("Jâ€™ai mis Ã  jour ton profil.");
   };
 
   const genererPlanActionRose = () => {
     const plan: string[] = [
       `Avancer sur : ${objectifPrincipal}`,
-      "Suivre les missions dans l’onglet Tâches.",
-      "Suivre les objectifs dans l’onglet Objectifs IA.",
-      "Valider les recherches utiles dans l’onglet Web.",
-      "Valider ou refuser les décisions proposées.",
-      "Planifier les événements importants dans l’onglet Agenda.",
-      "Générer une synthèse hebdomadaire.",
+      "Suivre les missions dans lâ€™onglet TÃ¢ches.",
+      "Suivre les objectifs dans lâ€™onglet Objectifs IA.",
+      "Valider les recherches utiles dans lâ€™onglet Web.",
+      "Valider ou refuser les dÃ©cisions proposÃ©es.",
+      "Planifier les Ã©vÃ©nements importants dans lâ€™onglet Agenda.",
+      "GÃ©nÃ©rer une synthÃ¨se hebdomadaire.",
     ];
 
     setPlanActionRose(plan);
-    setRoseReponse("Plan d’action généré.");
-    ajouterJournal("Plan d’action V7.4 généré.");
-    parler("J’ai généré mon plan d’action.");
+    setRoseReponse("Plan dâ€™action gÃ©nÃ©rÃ©.");
+    ajouterJournal("Plan dâ€™action V7.4 gÃ©nÃ©rÃ©.");
+    parler("Jâ€™ai gÃ©nÃ©rÃ© mon plan dâ€™action.");
   };
     const analyserHabitudesRose = () => {
     const habitudes: string[] = [];
 
     if (memoires.some((m) => m.categorie === "Entreprise")) {
       habitudes.push(
-        "David parle régulièrement de son entreprise, de ses clients et de ses chantiers."
+        "David parle rÃ©guliÃ¨rement de son entreprise, de ses clients et de ses chantiers."
       );
     }
 
     if (memoires.some((m) => m.categorie === "Objectif")) {
       habitudes.push(
-        "David avance avec des objectifs personnels et professionnels précis."
+        "David avance avec des objectifs personnels et professionnels prÃ©cis."
       );
     }
 
     if (roseTasks.length > 0) {
       habitudes.push(
-        "David utilise Rose pour générer et suivre des missions."
+        "David utilise Rose pour gÃ©nÃ©rer et suivre des missions."
       );
     }
 
@@ -1005,32 +1087,32 @@ Rose doit aider David à progresser, décider, se souvenir, structurer ses prior
 
     if (webRequests.length > 0) {
       habitudes.push(
-        "David prépare des recherches Web avec Rose avant validation."
+        "David prÃ©pare des recherches Web avec Rose avant validation."
       );
     }
 
     if (roseDecisions.length > 0) {
       habitudes.push(
-        "David utilise Rose pour analyser et valider des décisions."
+        "David utilise Rose pour analyser et valider des dÃ©cisions."
       );
     }
 
     if (calendarEvents.length > 0) {
       habitudes.push(
-        "David utilise Rose pour préparer ses rendez-vous, rappels et événements importants."
+        "David utilise Rose pour prÃ©parer ses rendez-vous, rappels et Ã©vÃ©nements importants."
       );
     }
 
     if (habitudes.length === 0) {
       habitudes.push(
-        "Rose manque encore d’informations pour détecter des habitudes fiables."
+        "Rose manque encore dâ€™informations pour dÃ©tecter des habitudes fiables."
       );
     }
 
     setHabitudesRose(habitudes);
-    setRoseReponse("J’ai analysé tes habitudes.");
-    ajouterJournal("Habitudes V7.4 analysées.");
-    parler("J’ai analysé tes habitudes.");
+    setRoseReponse("Jâ€™ai analysÃ© tes habitudes.");
+    ajouterJournal("Habitudes V7.4 analysÃ©es.");
+    parler("Jâ€™ai analysÃ© tes habitudes.");
   };
 
   const genererCoachEntreprise = () => {
@@ -1048,44 +1130,44 @@ Rose doit aider David à progresser, décider, se souvenir, structurer ses prior
 - Informations entreprise connues : ${infosEntreprise}.
 - Missions Rose : ${roseTasks.length}.
 - Objectifs IA : ${roseGoals.length}.
-- Recherches Web préparées : ${webRequests.length}.
-- Décisions proposées : ${roseDecisions.length}.
-- Événements chantier ou client : ${evenementsEntreprise}.
+- Recherches Web prÃ©parÃ©es : ${webRequests.length}.
+- DÃ©cisions proposÃ©es : ${roseDecisions.length}.
+- Ã‰vÃ©nements chantier ou client : ${evenementsEntreprise}.
 - Objectif principal : ${objectifPrincipal}.
 
-Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, tes difficultés et tes rendez-vous importants pour que Rose puisse mieux t’aider à organiser ton activité.`;
+Conseil : ajoute rÃ©guliÃ¨rement tes chantiers, tes montants, tes rÃ©ussites, tes difficultÃ©s et tes rendez-vous importants pour que Rose puisse mieux tâ€™aider Ã  organiser ton activitÃ©.`;
 
     setCoachEntreprise(texte);
-    setRoseReponse("Coach entreprise généré.");
-    ajouterJournal("Coach entreprise V7.4 généré.");
-    parler("J’ai généré le coach entreprise.");
+    setRoseReponse("Coach entreprise gÃ©nÃ©rÃ©.");
+    ajouterJournal("Coach entreprise V7.4 gÃ©nÃ©rÃ©.");
+    parler("Jâ€™ai gÃ©nÃ©rÃ© le coach entreprise.");
   };
 
   const genererActionsRecommandees = () => {
     const actions: string[] = [
-      "Ajouter une mémoire importante ou longue durée.",
-      `Faire une action concrète pour : ${objectifPrincipal}`,
-      "Suivre les missions dans l’onglet Tâches.",
-      "Suivre les objectifs dans l’onglet Objectifs IA.",
-      "Valider ou annuler les recherches Web préparées.",
-      "Valider ou refuser les décisions proposées.",
-      "Planifier les événements importants dans l’onglet Agenda.",
-      "Générer ou mettre à jour la synthèse hebdomadaire.",
+      "Ajouter une mÃ©moire importante ou longue durÃ©e.",
+      `Faire une action concrÃ¨te pour : ${objectifPrincipal}`,
+      "Suivre les missions dans lâ€™onglet TÃ¢ches.",
+      "Suivre les objectifs dans lâ€™onglet Objectifs IA.",
+      "Valider ou annuler les recherches Web prÃ©parÃ©es.",
+      "Valider ou refuser les dÃ©cisions proposÃ©es.",
+      "Planifier les Ã©vÃ©nements importants dans lâ€™onglet Agenda.",
+      "GÃ©nÃ©rer ou mettre Ã  jour la synthÃ¨se hebdomadaire.",
     ];
 
     setActionsRecommandees(actions);
-    setRoseReponse("Actions recommandées générées.");
-    ajouterJournal("Actions recommandées V7.4 générées.");
-    parler("J’ai généré les actions recommandées.");
+    setRoseReponse("Actions recommandÃ©es gÃ©nÃ©rÃ©es.");
+    ajouterJournal("Actions recommandÃ©es V7.4 gÃ©nÃ©rÃ©es.");
+    parler("Jâ€™ai gÃ©nÃ©rÃ© les actions recommandÃ©es.");
   };
     const regenererTachesRose = () => {
     const memoriesText = memoires.map((m) => m.texte);
     const suggested = suggestTasksFromMemory(memoriesText);
 
     setRoseTasks(suggested);
-    setRoseReponse("J’ai régénéré mes missions à partir de ma mémoire.");
-    ajouterJournal("Missions Rose V7.4 régénérées.");
-    parler("J’ai régénéré mes missions.");
+    setRoseReponse("Jâ€™ai rÃ©gÃ©nÃ©rÃ© mes missions Ã  partir de ma mÃ©moire.");
+    ajouterJournal("Missions Rose V7.4 rÃ©gÃ©nÃ©rÃ©es.");
+    parler("Jâ€™ai rÃ©gÃ©nÃ©rÃ© mes missions.");
   };
 
   const regenererObjectifsIA = () => {
@@ -1104,13 +1186,13 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
               title: "Atteindre mon objectif principal",
               target:
                 objectifPrincipal ||
-                "Définir et atteindre mon objectif principal",
+                "DÃ©finir et atteindre mon objectif principal",
               progress: 0,
               status: "active",
               subGoals: [
-                "Définir les prochaines actions prioritaires",
-                "Réaliser une première action cette semaine",
-                "Mesurer régulièrement la progression",
+                "DÃ©finir les prochaines actions prioritaires",
+                "RÃ©aliser une premiÃ¨re action cette semaine",
+                "Mesurer rÃ©guliÃ¨rement la progression",
               ],
             },
           ];
@@ -1119,20 +1201,20 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
 
     setRoseReponse(
       suggested.length > 0
-        ? "J’ai régénéré mes objectifs IA à partir de ma mémoire."
-        : "Ma mémoire ne contenait pas encore assez d’informations. J’ai créé un premier objectif à partir de ton objectif principal."
+        ? "Jâ€™ai rÃ©gÃ©nÃ©rÃ© mes objectifs IA Ã  partir de ma mÃ©moire."
+        : "Ma mÃ©moire ne contenait pas encore assez dâ€™informations. Jâ€™ai crÃ©Ã© un premier objectif Ã  partir de ton objectif principal."
     );
 
     ajouterJournal(
       suggested.length > 0
-        ? "Objectifs IA V7.4 régénérés."
-        : "Objectif IA par défaut créé."
+        ? "Objectifs IA V7.4 rÃ©gÃ©nÃ©rÃ©s."
+        : "Objectif IA par dÃ©faut crÃ©Ã©."
     );
 
     parler(
       suggested.length > 0
-        ? "J’ai régénéré mes objectifs IA."
-        : "J’ai créé un premier objectif IA."
+        ? "Jâ€™ai rÃ©gÃ©nÃ©rÃ© mes objectifs IA."
+        : "Jâ€™ai crÃ©Ã© un premier objectif IA."
     );
   };
 
@@ -1142,10 +1224,10 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
 
     setWebRequests(suggested);
     setRoseReponse(
-      "J’ai préparé des recherches Web à partir de ma mémoire."
+      "Jâ€™ai prÃ©parÃ© des recherches Web Ã  partir de ma mÃ©moire."
     );
-    ajouterJournal("Recherches Web V7.4 préparées.");
-    parler("J’ai préparé les recherches Web.");
+    ajouterJournal("Recherches Web V7.4 prÃ©parÃ©es.");
+    parler("Jâ€™ai prÃ©parÃ© les recherches Web.");
   };
 
   const regenererDecisionsRose = () => {
@@ -1154,10 +1236,10 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
 
     setRoseDecisions(suggested);
     setRoseReponse(
-      "J’ai régénéré mes décisions à partir de ma mémoire."
+      "Jâ€™ai rÃ©gÃ©nÃ©rÃ© mes dÃ©cisions Ã  partir de ma mÃ©moire."
     );
-    ajouterJournal("Décisions Rose V7.4 régénérées.");
-    parler("J’ai régénéré mes décisions.");
+    ajouterJournal("DÃ©cisions Rose V7.4 rÃ©gÃ©nÃ©rÃ©es.");
+    parler("Jâ€™ai rÃ©gÃ©nÃ©rÃ© mes dÃ©cisions.");
   };
 
   const regenererAgendaRose = () => {
@@ -1166,10 +1248,10 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
 
     setCalendarEvents(suggested);
     setRoseReponse(
-      "J’ai préparé les événements Agenda à partir de ma mémoire."
+      "Jâ€™ai prÃ©parÃ© les Ã©vÃ©nements Agenda Ã  partir de ma mÃ©moire."
     );
-    ajouterJournal("Événements Agenda V7.4 préparés.");
-    parler("J’ai préparé les événements de l’agenda.");
+    ajouterJournal("Ã‰vÃ©nements Agenda V7.4 prÃ©parÃ©s.");
+    parler("Jâ€™ai prÃ©parÃ© les Ã©vÃ©nements de lâ€™agenda.");
   };
 
   const analyseCore = useMemo(() => {
@@ -1192,7 +1274,7 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
     ).length;
 
     const memoiresLongueDureeCount = memoires.filter(
-      (m) => m.importance === "Longue durée"
+      (m) => m.importance === "Longue durÃ©e"
     ).length;
 
     const progressionMoyenne =
@@ -1295,7 +1377,7 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
         <Text style={styles.title}>Rose Agent System V7.4</Text>
 
         <Text style={styles.subtitle}>
-          Mémoire • Tâches • Objectifs IA • Web • Décisions • Agenda
+          MÃ©moire â€¢ TÃ¢ches â€¢ Objectifs IA â€¢ Web â€¢ DÃ©cisions â€¢ Agenda
         </Text>
 
         <Text style={styles.cloud}>{cloudStatus}</Text>
@@ -1308,7 +1390,7 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
           />
 
           <TabButton
-            title="Mémoire"
+            title="MÃ©moire"
             active={tab === "memoire"}
             onPress={() => setTab("memoire")}
           />
@@ -1332,7 +1414,7 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
           />
 
           <TabButton
-            title="Décisions"
+            title="DÃ©cisions"
             active={tab === "decisions"}
             onPress={() => setTab("decisions")}
           />
@@ -1374,7 +1456,7 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
           />
 
           <TabButton
-            title="Tâches"
+            title="TÃ¢ches"
             active={tab === "tasks"}
             onPress={() => setTab("tasks")}
           />
@@ -1384,7 +1466,7 @@ Conseil : ajoute régulièrement tes chantiers, tes montants, tes réussites, te
             onPress={() => setTab("approvals")}
           />
           <TabButton
-            title="ExÃ©cution"
+            title="ExÃƒÂ©cution"
             active={tab === "executionQueue"}
             onPress={() => setTab("executionQueue")}
           />

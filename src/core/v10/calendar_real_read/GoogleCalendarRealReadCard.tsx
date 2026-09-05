@@ -9,9 +9,12 @@ import {
 import { readUpcomingGoogleCalendarEvents } from "./GoogleCalendarRealRead";
 import type { RoseCalendarEvent } from "./CalendarRealReadTypes";
 
-function formatDate(value: string) {
+function formatDate(value: string, allDay?: boolean) {
   if (!value) return "";
   try {
+    if (allDay) {
+      return new Date(`${value}T00:00:00`).toLocaleDateString();
+    }
     return new Date(value).toLocaleString();
   } catch {
     return value;
@@ -27,14 +30,17 @@ export default function GoogleCalendarRealReadCard() {
   async function refresh() {
     setBusy(true);
     setError(undefined);
+
     try {
       const result = await readUpcomingGoogleCalendarEvents(10);
       setTested(true);
+
       if (!result.ok) {
         setEvents([]);
         setError(result.error || "Lecture Google Calendar impossible.");
         return;
       }
+
       setEvents(result.events);
     } finally {
       setBusy(false);
@@ -49,6 +55,7 @@ export default function GoogleCalendarRealReadCard() {
         <Text style={styles.label}>Mode</Text>
         <Text style={styles.ok}>READ ONLY</Text>
       </View>
+
       <View style={styles.row}>
         <Text style={styles.label}>Ecriture Calendar</Text>
         <Text style={styles.warn}>DESACTIVEE</Text>
@@ -77,9 +84,16 @@ export default function GoogleCalendarRealReadCard() {
       ) : null}
 
       {events.map((event) => (
-        <View key={event.id || `${event.summary}-${event.start}`} style={styles.event}>
+        <View
+          key={event.id || `${event.summary}-${event.start}`}
+          style={styles.event}
+        >
           <Text style={styles.eventTitle}>{event.summary}</Text>
-          <Text style={styles.eventDate}>{formatDate(event.start)}</Text>
+          <Text style={styles.eventDate}>
+            {formatDate(event.start, event.allDay)}
+            {event.allDay ? " (journee entiere)" : ""}
+          </Text>
+
           {event.location ? (
             <Text style={styles.eventMeta}>{event.location}</Text>
           ) : null}

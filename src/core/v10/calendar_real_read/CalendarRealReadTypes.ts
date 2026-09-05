@@ -5,6 +5,7 @@ export type RoseCalendarEvent = {
   end?: string;
   location?: string;
   htmlLink?: string;
+  allDay?: boolean;
 };
 
 export type CalendarReadResult = {
@@ -12,4 +13,5 @@ export type CalendarReadResult = {
   events: RoseCalendarEvent[];
   error?: string;
   readOnly: true;
+  refreshedToken?: boolean;
 };
