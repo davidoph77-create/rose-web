@@ -11,6 +11,7 @@ import {
 import { validateCalendarResponse } from "./src/core/v10/calendar_response_validation";
 import { classifyCalendarQueryPriority } from "./src/core/v10/calendar_query_priority";
 import { classifyCalendarReadHardRoute } from "./src/core/v10/calendar_read_hard_route";
+import { prepareControlledCalendarWrite } from "./src/core/v10/calendar_write_conversation";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -650,6 +651,23 @@ export default function App() {
     if (!message.trim()) return;
 
     const messageEnvoye = message;
+    // Rose V10-042D - Controlled Calendar WRITE conversation bridge.
+    // Draft only: NO Google Calendar write is performed here.
+    const controlledCalendarWrite = prepareControlledCalendarWrite(messageEnvoye);
+    if (controlledCalendarWrite.handled) {
+      const categorie = detecterCategorie(messageEnvoye);
+      const importance = detecterImportance(messageEnvoye);
+      ajouterMemoire(messageEnvoye, categorie, importance);
+
+      setRoseReponse(controlledCalendarWrite.text);
+      ajouterJournal(
+        `V10-042D : Calendar WRITE DRAFT / approval-required / execution-disabled / title=${controlledCalendarWrite.draft?.title ?? "unknown"}`
+      );
+      parler(controlledCalendarWrite.text);
+      setMessage("");
+      console.log("[Rose V10-042D] CALENDAR WRITE DRAFT / execution=DISABLED");
+      return;
+    }
 
     try {
       const preparedCalendarQuery = prepareCalendarConversationQuery(
@@ -786,7 +804,7 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-041J",
+        appVersion: "V10-042D",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
@@ -1940,3 +1958,4 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
