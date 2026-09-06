@@ -12,6 +12,12 @@ import { validateCalendarResponse } from "./src/core/v10/calendar_response_valid
 import { classifyCalendarQueryPriority } from "./src/core/v10/calendar_query_priority";
 import { classifyCalendarReadHardRoute } from "./src/core/v10/calendar_read_hard_route";
 import { prepareControlledCalendarWrite } from "./src/core/v10/calendar_write_conversation";
+import {
+  createCalendarApprovalState,
+  storePendingCalendarDraft,
+  handleExplicitCalendarApproval,
+  markCalendarDraftApproved,
+} from "./src/core/v10/calendar_explicit_approval";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -115,6 +121,10 @@ export default function App() {
   const calendarConversationRef = useRef(
     createCalendarConversationContext()
   );
+
+  // Rose V10-042E - Calendar explicit approval state.
+  // Approval remains local only: Google Calendar WRITE is still disabled.
+  const calendarApprovalRef = useRef(createCalendarApprovalState());
 
   const [message, setMessage] = useState("");
   const [cloudStatus, setCloudStatus] = useState("Cloud en attente");
@@ -651,10 +661,44 @@ export default function App() {
     if (!message.trim()) return;
 
     const messageEnvoye = message;
+
+    // Rose V10-042E - explicit approval of the last Calendar draft.
+    // SECURITY: approval changes only local conversational state.
+    // No Google Calendar create/update/delete request is sent here.
+    const explicitCalendarApproval = handleExplicitCalendarApproval(
+      messageEnvoye,
+      calendarApprovalRef.current
+    );
+
+    if (explicitCalendarApproval.handled) {
+      calendarApprovalRef.current = markCalendarDraftApproved(
+        calendarApprovalRef.current,
+        explicitCalendarApproval.draft
+      );
+
+      setRoseReponse(explicitCalendarApproval.text);
+      ajouterJournal(
+        "V10-042E : Calendar draft APPROVED explicitly / Google Calendar WRITE DISABLED / execution-disabled"
+      );
+      parler(explicitCalendarApproval.text);
+      setMessage("");
+
+      console.log(
+        "[Rose V10-042E] CALENDAR DRAFT APPROVED / Google Calendar WRITE=DISABLED / execution=DISABLED"
+      );
+
+      return;
+    }
+
     // Rose V10-042D - Controlled Calendar WRITE conversation bridge.
     // Draft only: NO Google Calendar write is performed here.
     const controlledCalendarWrite = prepareControlledCalendarWrite(messageEnvoye);
     if (controlledCalendarWrite.handled) {
+      calendarApprovalRef.current = storePendingCalendarDraft(
+        calendarApprovalRef.current,
+        controlledCalendarWrite.draft
+      );
+
       const categorie = detecterCategorie(messageEnvoye);
       const importance = detecterImportance(messageEnvoye);
       ajouterMemoire(messageEnvoye, categorie, importance);
@@ -804,7 +848,7 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-042D",
+        appVersion: "V10-042E",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
@@ -1958,4 +2002,5 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
 
