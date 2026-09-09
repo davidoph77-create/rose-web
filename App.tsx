@@ -22,6 +22,12 @@ import {
   prepareGoogleCalendarCreatePayload,
   formatPreparedGoogleCalendarPayload,
 } from "./src/core/v10/calendar_create_preparation";
+import {
+  createCalendarExecutionGateState,
+  storeApprovedCalendarPayload,
+  evaluateCalendarCreateExecutionGate,
+  markCalendarExecutionGateAuthorized,
+} from "./src/core/v10/calendar_create_execution_gate";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -129,6 +135,12 @@ export default function App() {
   // Rose V10-042E - Calendar explicit approval state.
   // Approval remains local only: Google Calendar WRITE is still disabled.
   const calendarApprovalRef = useRef(createCalendarApprovalState());
+
+  // Rose V10-042G - final execution gate state.
+  // Authorization is conversational only at this stage.
+  const calendarExecutionGateRef = useRef(
+    createCalendarExecutionGateState()
+  );
 
   const [message, setMessage] = useState("");
   const [cloudStatus, setCloudStatus] = useState("Cloud en attente");
@@ -665,6 +677,32 @@ export default function App() {
     if (!message.trim()) return;
 
     const messageEnvoye = message;
+    // Rose V10-042G - final Calendar create execution gate.
+    // SECURITY: this only authorizes the local gate.
+    // Google Calendar POST remains disabled in V10-042G.
+    const finalCalendarCreateConfirmation = evaluateCalendarCreateExecutionGate(
+      messageEnvoye,
+      calendarExecutionGateRef.current
+    );
+
+    if (finalCalendarCreateConfirmation.handled) {
+      calendarExecutionGateRef.current = markCalendarExecutionGateAuthorized(
+        calendarExecutionGateRef.current
+      );
+
+      setRoseReponse(finalCalendarCreateConfirmation.text);
+      ajouterJournal(
+        "V10-042G : Calendar create execution gate authorized / payload-ready / Google Calendar POST DISABLED"
+      );
+      parler(finalCalendarCreateConfirmation.text);
+      setMessage("");
+
+      console.log(
+        "[Rose V10-042G] CALENDAR CREATE EXECUTION GATE / authorized=true / payload-ready=true / Google Calendar POST=DISABLED"
+      );
+
+      return;
+    }
 
     // Rose V10-042E - explicit approval of the last Calendar draft.
     // SECURITY: approval changes only local conversational state.
@@ -685,6 +723,13 @@ export default function App() {
       const preparedCreatePayload = prepareGoogleCalendarCreatePayload(
         explicitCalendarApproval.draft
       );
+
+      if (preparedCreatePayload.ok && preparedCreatePayload.payload) {
+        calendarExecutionGateRef.current = storeApprovedCalendarPayload(
+          calendarExecutionGateRef.current,
+          preparedCreatePayload.payload
+        );
+      }
 
       const payloadText = formatPreparedGoogleCalendarPayload(
         preparedCreatePayload
@@ -865,7 +910,7 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-042F",
+        appVersion: "V10-042G",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
@@ -2019,6 +2064,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
 
 
 
