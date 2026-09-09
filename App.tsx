@@ -28,6 +28,7 @@ import {
   evaluateCalendarCreateExecutionGate,
   markCalendarExecutionGateAuthorized,
 } from "./src/core/v10/calendar_create_execution_gate";
+import { executeControlledGoogleCalendarCreate } from "./src/core/v10/calendar_controlled_create";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -690,16 +691,29 @@ export default function App() {
         calendarExecutionGateRef.current
       );
 
-      setRoseReponse(finalCalendarCreateConfirmation.text);
-      ajouterJournal(
-        "V10-042G : Calendar create execution gate authorized / payload-ready / Google Calendar POST DISABLED"
+      // Rose V10-042H - REAL Google Calendar CREATE, only after the final
+      // explicit execution gate has been authorized.
+      const calendarCreateResult = await executeControlledGoogleCalendarCreate(
+        calendarExecutionGateRef.current
       );
-      parler(finalCalendarCreateConfirmation.text);
+
+      setRoseReponse(calendarCreateResult.text);
+      ajouterJournal(
+        `V10-042H : Google Calendar CREATE / ok=${calendarCreateResult.ok} / created=${calendarCreateResult.created} / eventId=${calendarCreateResult.eventId ?? "none"}`
+      );
+      parler(calendarCreateResult.text);
       setMessage("");
 
       console.log(
-        "[Rose V10-042G] CALENDAR CREATE EXECUTION GATE / authorized=true / payload-ready=true / Google Calendar POST=DISABLED"
+        `[Rose V10-042H] GOOGLE CALENDAR CREATE / ok=${calendarCreateResult.ok} / created=${calendarCreateResult.created} / eventId=${calendarCreateResult.eventId ?? "none"}`
       );
+
+      if (calendarCreateResult.error) {
+        console.log(
+          "[Rose V10-042H] Google Calendar create error:",
+          calendarCreateResult.error
+        );
+      }
 
       return;
     }
@@ -910,7 +924,7 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-042G",
+        appVersion: "V10-042H",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
@@ -2064,6 +2078,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
 
 
 
