@@ -18,6 +18,10 @@ import {
   handleExplicitCalendarApproval,
   markCalendarDraftApproved,
 } from "./src/core/v10/calendar_explicit_approval";
+import {
+  prepareGoogleCalendarCreatePayload,
+  formatPreparedGoogleCalendarPayload,
+} from "./src/core/v10/calendar_create_preparation";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -676,15 +680,28 @@ export default function App() {
         explicitCalendarApproval.draft
       );
 
-      setRoseReponse(explicitCalendarApproval.text);
-      ajouterJournal(
-        "V10-042E : Calendar draft APPROVED explicitly / Google Calendar WRITE DISABLED / execution-disabled"
+      // Rose V10-042F - prepare the exact Google Calendar create payload.
+      // SECURITY: payload preparation only. NO POST/PUT/PATCH/DELETE is executed.
+      const preparedCreatePayload = prepareGoogleCalendarCreatePayload(
+        explicitCalendarApproval.draft
       );
-      parler(explicitCalendarApproval.text);
+
+      const payloadText = formatPreparedGoogleCalendarPayload(
+        preparedCreatePayload
+      );
+
+      const response042F =
+        explicitCalendarApproval.text + " " + payloadText;
+
+      setRoseReponse(response042F);
+      ajouterJournal(
+        `V10-042F : Calendar create payload prepared=${preparedCreatePayload.ok} / Google Calendar WRITE DISABLED / execution-disabled`
+      );
+      parler(response042F);
       setMessage("");
 
       console.log(
-        "[Rose V10-042E] CALENDAR DRAFT APPROVED / Google Calendar WRITE=DISABLED / execution=DISABLED"
+        `[Rose V10-042F] CALENDAR CREATE PAYLOAD / ready=${preparedCreatePayload.ok} / Google Calendar WRITE=DISABLED / execution=DISABLED`
       );
 
       return;
@@ -848,7 +865,7 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-042E",
+        appVersion: "V10-042F",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
@@ -2002,5 +2019,6 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
 
 
