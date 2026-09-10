@@ -31,7 +31,8 @@ import {
 import { executeControlledGoogleCalendarCreate } from "./src/core/v10/calendar_controlled_create";
 import { prepareCalendarUpdateFoundation } from "./src/core/v10/calendar_update_foundation";
 import { resolveGoogleCalendarEventForUpdate } from "./src/core/v10/calendar_event_resolver";
-import { handleCalendarUpdateApproval, rememberPendingCalendarUpdate } from "./src/core/v10/calendar_update_approval";
+import { handleCalendarUpdateApproval, rememberPendingCalendarUpdate, clearPendingCalendarUpdate } from "./src/core/v10/calendar_update_approval";
+import { executeControlledGoogleCalendarUpdate } from "./src/core/v10/calendar_controlled_update";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -681,23 +682,53 @@ export default function App() {
     if (!message.trim()) return;
 
     const messageEnvoye = message;
-    // Rose V10-043C - explicit approval for an already resolved Calendar UPDATE.
-    // SECURITY: approval only. NO PATCH/PUT/DELETE is sent to Google Calendar.
+    // Rose V10-043D - explicit approval + controlled Google Calendar UPDATE.
+    // SECURITY: PATCH is allowed only for the resolved eventId after explicit approval.
+    // DELETE remains disabled and no autonomous update is allowed.
     const calendarUpdateApproval = handleCalendarUpdateApproval(messageEnvoye);
     if (calendarUpdateApproval.handled) {
       const categorie = detecterCategorie(messageEnvoye);
       const importance = detecterImportance(messageEnvoye);
       ajouterMemoire(messageEnvoye, categorie, importance);
 
+      if (calendarUpdateApproval.approved && calendarUpdateApproval.pending) {
+        const calendarUpdateResult = await executeControlledGoogleCalendarUpdate(
+          calendarUpdateApproval.pending
+        );
+
+        if (calendarUpdateResult.ok && calendarUpdateResult.verified) {
+          clearPendingCalendarUpdate();
+        }
+
+        setRoseReponse(calendarUpdateResult.text);
+        ajouterJournal(
+          `V10-043D : Google Calendar UPDATE / ok=${calendarUpdateResult.ok} / updated=${calendarUpdateResult.updated} / verified=${calendarUpdateResult.verified} / eventId=${calendarUpdateResult.eventId ?? "none"} / DELETE=DISABLED`
+        );
+        parler(calendarUpdateResult.text);
+        setMessage("");
+
+        console.log(
+          `[Rose V10-043D] GOOGLE CALENDAR UPDATE / ok=${calendarUpdateResult.ok} / updated=${calendarUpdateResult.updated} / verified=${calendarUpdateResult.verified} / eventId=${calendarUpdateResult.eventId ?? "none"} / DELETE=DISABLED`
+        );
+
+        if (calendarUpdateResult.error) {
+          console.log(
+            "[Rose V10-043D] Google Calendar update error:",
+            calendarUpdateResult.error
+          );
+        }
+        return;
+      }
+
       setRoseReponse(calendarUpdateApproval.text);
       ajouterJournal(
-        `V10-043C : Calendar UPDATE APPROVAL / approved=${calendarUpdateApproval.approved} / eventId=${calendarUpdateApproval.pending?.event.id ?? "none"} / WRITE=DISABLED`
+        `V10-043D : Calendar UPDATE approval handled / approved=false / PATCH=NOT-SENT / DELETE=DISABLED`
       );
       parler(calendarUpdateApproval.text);
       setMessage("");
 
       console.log(
-        `[Rose V10-043C] CALENDAR UPDATE APPROVAL / approved=${calendarUpdateApproval.approved} / eventId=${calendarUpdateApproval.pending?.event.id ?? "none"} / PATCH-PUT-DELETE=DISABLED`
+        "[Rose V10-043D] CALENDAR UPDATE APPROVAL / approved=false / PATCH=NOT-SENT / DELETE=DISABLED"
       );
       return;
     }
@@ -2140,6 +2171,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
 
 
 
