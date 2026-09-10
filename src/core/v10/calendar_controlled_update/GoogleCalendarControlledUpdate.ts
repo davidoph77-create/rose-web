@@ -10,6 +10,12 @@ export type ControlledCalendarUpdateResult = {
   error?: string;
 };
 
+const consumedUpdateKeys = new Set<string>();
+
+function normalizeText(value?: string) {
+  return String(value || "").trim();
+}
+
 function parseTimeToMinutes(value?: string): number | null {
   if (!value) return null;
 
@@ -64,10 +70,10 @@ function buildUpdatedTimes(pending: PendingCalendarUpdate) {
     throw new Error("Heure de début actuelle absente.");
   }
 
-  // V10-043D modifies timed events only.
-  // All-day events remain protected until a dedicated implementation exists.
   if (/^\d{4}-\d{2}-\d{2}$/.test(event.start)) {
-    throw new Error("Modification des événements journée entière non autorisée dans V10-043D.");
+    throw new Error(
+      "Modification des événements journée entière non autorisée dans V10-043E1."
+    );
   }
 
   const oldStart = new Date(event.start);
@@ -81,7 +87,6 @@ function buildUpdatedTimes(pending: PendingCalendarUpdate) {
       ? Math.max(5 * 60 * 1000, oldEnd.getTime() - oldStart.getTime())
       : 60 * 60 * 1000;
 
-  // Use the device's local calendar date. Rose is currently configured for Europe/Paris.
   const newStart = new Date(oldStart);
   newStart.setHours(
     Math.floor(newMinutes / 60),
@@ -95,11 +100,10 @@ function buildUpdatedTimes(pending: PendingCalendarUpdate) {
   return {
     start: newStart.toISOString(),
     end: newEnd.toISOString(),
-    durationMs,
   };
 }
 
-async function readBackEvent(accessToken: string, eventId: string) {
+async function getEvent(accessToken: string, eventId: string, label: string) {
   const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`,
     {
@@ -112,13 +116,13 @@ async function readBackEvent(accessToken: string, eventId: string) {
   );
 
   console.log(
-    `[Rose V10-043D] UPDATE READ-BACK HTTP / status=${response.status} / ok=${response.ok}`
+    `[Rose V10-043E1] ${label} / status=${response.status} / ok=${response.ok}`
   );
 
   if (!response.ok) {
     const body = await response.text();
     throw new Error(
-      `Google Calendar read-back failed (${response.status}): ${body.slice(0, 300)}`
+      `Google Calendar GET failed (${response.status}): ${body.slice(0, 300)}`
     );
   }
 
@@ -152,6 +156,24 @@ export async function executeControlledGoogleCalendarUpdate(
       };
     }
 
+    const oneShotKey = [
+      pending.event.id,
+      pending.event.start || "",
+      pending.draft.newTime || "",
+    ].join("|");
+
+    if (consumedUpdateKeys.has(oneShotKey)) {
+      return {
+        ok: false,
+        updated: false,
+        verified: false,
+        eventId: pending.event.id,
+        text:
+          "Cette validation de modification a déjà été utilisée. Aucun second PATCH n’a été envoyé.",
+        error: "Update approval already consumed.",
+      };
+    }
+
     const signedIn = await GoogleSignin.hasPreviousSignIn();
     if (!signedIn) {
       return {
@@ -180,6 +202,52 @@ export async function executeControlledGoogleCalendarUpdate(
       };
     }
 
+    // PRE-PATCH safety check: re-read the exact resolved event and verify it has not changed.
+    const preflight = await getEvent(
+      accessToken,
+      pending.event.id,
+      "UPDATE PREFLIGHT GET"
+    );
+
+    const preflightSummary = normalizeText(preflight?.summary);
+    const expectedSummary = normalizeText(pending.event.summary);
+
+    const actualStart =
+      preflight?.start?.dateTime ||
+      preflight?.start?.date ||
+      "";
+
+    const actualEnd =
+      preflight?.end?.dateTime ||
+      preflight?.end?.date ||
+      "";
+
+    const summaryMatch = preflightSummary === expectedSummary;
+    const startMatch = sameInstant(pending.event.start, actualStart);
+    const endMatch =
+      !pending.event.end || sameInstant(pending.event.end, actualEnd);
+    const active = String(preflight?.status || "confirmed") !== "cancelled";
+
+    console.log(
+      `[Rose V10-043E1] UPDATE PREFLIGHT VERIFY / summaryMatch=${summaryMatch} / startMatch=${startMatch} / endMatch=${endMatch} / active=${active}`
+    );
+
+    if (!summaryMatch || !startMatch || !endMatch || !active) {
+      return {
+        ok: false,
+        updated: false,
+        verified: false,
+        eventId: pending.event.id,
+        text:
+          "Modification bloquée : le rendez-vous Google Calendar a changé depuis son identification. Aucun PATCH n’a été envoyé.",
+        error:
+          `Preflight mismatch: summary=${summaryMatch}, start=${startMatch}, end=${endMatch}, active=${active}.`,
+      };
+    }
+
+    // Consume the approval BEFORE the network write, so the same approval cannot be replayed.
+    consumedUpdateKeys.add(oneShotKey);
+
     const updatedTimes = buildUpdatedTimes(pending);
 
     const payload = {
@@ -194,7 +262,7 @@ export async function executeControlledGoogleCalendarUpdate(
     };
 
     console.log(
-      `[Rose V10-043D] UPDATE START / eventId=${pending.event.id} / oldStart=${pending.event.start} / newStart=${updatedTimes.start}`
+      `[Rose V10-043E1] UPDATE START / eventId=${pending.event.id} / oldStart=${pending.event.start} / newStart=${updatedTimes.start}`
     );
 
     const patchResponse = await fetch(
@@ -211,7 +279,7 @@ export async function executeControlledGoogleCalendarUpdate(
     );
 
     console.log(
-      `[Rose V10-043D] UPDATE PATCH HTTP / status=${patchResponse.status} / ok=${patchResponse.ok}`
+      `[Rose V10-043E1] UPDATE PATCH HTTP / status=${patchResponse.status} / ok=${patchResponse.ok}`
     );
 
     if (!patchResponse.ok) {
@@ -222,28 +290,32 @@ export async function executeControlledGoogleCalendarUpdate(
         verified: false,
         eventId: pending.event.id,
         text:
-          "La modification Google Calendar a échoué. Aucun autre événement n’a été modifié.",
+          "La modification Google Calendar a échoué. La validation a été consommée pour éviter toute répétition automatique.",
         error: `Google Calendar PATCH failed (${patchResponse.status}): ${body.slice(0, 500)}`,
       };
     }
 
-    const patchedEvent = await patchResponse.json();
-    const readBack = await readBackEvent(accessToken, pending.event.id);
+    await patchResponse.json();
 
-    const actualStart =
+    const readBack = await getEvent(
+      accessToken,
+      pending.event.id,
+      "UPDATE READ-BACK HTTP"
+    );
+
+    const readBackStart =
       readBack?.start?.dateTime ||
       readBack?.start?.date ||
       "";
 
     const summaryMatches =
-      String(readBack?.summary || "").trim() ===
-      String(pending.event.summary || "").trim();
+      normalizeText(readBack?.summary) === expectedSummary;
 
-    const startMatches = sameInstant(updatedTimes.start, actualStart);
-    const verified = summaryMatches && startMatches;
+    const finalStartMatches = sameInstant(updatedTimes.start, readBackStart);
+    const verified = summaryMatches && finalStartMatches;
 
     console.log(
-      `[Rose V10-043D] UPDATE VERIFY / summaryMatch=${summaryMatches} / startMatch=${startMatches} / expected=${updatedTimes.start} / actual=${actualStart}`
+      `[Rose V10-043E1] UPDATE VERIFY / summaryMatch=${summaryMatches} / startMatch=${finalStartMatches} / expected=${updatedTimes.start} / actual=${readBackStart}`
     );
 
     if (!verified) {
@@ -255,7 +327,7 @@ export async function executeControlledGoogleCalendarUpdate(
         text:
           `Le rendez-vous « ${pending.event.summary} » a reçu la modification, mais la relecture Google Calendar ne correspond pas exactement au résultat attendu. Vérification manuelle conseillée.`,
         error:
-          `Read-back mismatch: summary=${summaryMatches}, start=${startMatches}.`,
+          `Read-back mismatch: summary=${summaryMatches}, start=${finalStartMatches}.`,
       };
     }
 
