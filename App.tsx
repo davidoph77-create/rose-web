@@ -29,6 +29,7 @@ import {
   markCalendarExecutionGateAuthorized,
 } from "./src/core/v10/calendar_create_execution_gate";
 import { executeControlledGoogleCalendarCreate } from "./src/core/v10/calendar_controlled_create";
+import { prepareCalendarUpdateFoundation } from "./src/core/v10/calendar_update_foundation";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -678,6 +679,25 @@ export default function App() {
     if (!message.trim()) return;
 
     const messageEnvoye = message;
+    // Rose V10-043A - Calendar UPDATE foundation.
+    // SECURITY: detection + draft only. NO PATCH/PUT/DELETE is sent to Google Calendar.
+    const calendarUpdateFoundation = prepareCalendarUpdateFoundation(messageEnvoye);
+    if (calendarUpdateFoundation.handled) {
+      const categorie = detecterCategorie(messageEnvoye);
+      const importance = detecterImportance(messageEnvoye);
+      ajouterMemoire(messageEnvoye, categorie, importance);
+
+      setRoseReponse(calendarUpdateFoundation.text);
+      ajouterJournal(
+        `V10-043A : Calendar UPDATE DRAFT / execution-disabled / target=${calendarUpdateFoundation.draft?.targetHint ?? "unknown"} / change=${calendarUpdateFoundation.draft?.requestedChange ?? "unknown"}`
+      );
+      parler(calendarUpdateFoundation.text);
+      setMessage("");
+      console.log(
+        `[Rose V10-043A] CALENDAR UPDATE DRAFT / execution=DISABLED / target=${calendarUpdateFoundation.draft?.targetHint ?? "unknown"}`
+      );
+      return;
+    }
     // Rose V10-042G - final Calendar create execution gate.
     // SECURITY: this only authorizes the local gate.
     // Google Calendar POST remains disabled in V10-042G.
@@ -2078,6 +2098,9 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
+
+
 
 
 
