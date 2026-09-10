@@ -30,6 +30,7 @@ import {
 } from "./src/core/v10/calendar_create_execution_gate";
 import { executeControlledGoogleCalendarCreate } from "./src/core/v10/calendar_controlled_create";
 import { prepareCalendarUpdateFoundation } from "./src/core/v10/calendar_update_foundation";
+import { resolveGoogleCalendarEventForUpdate } from "./src/core/v10/calendar_event_resolver";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -679,23 +680,36 @@ export default function App() {
     if (!message.trim()) return;
 
     const messageEnvoye = message;
-    // Rose V10-043A - Calendar UPDATE foundation.
-    // SECURITY: detection + draft only. NO PATCH/PUT/DELETE is sent to Google Calendar.
+    // Rose V10-043B - Google Calendar Event Resolver.
+    // SECURITY: READ ONLY resolution. Only Google Calendar GET is allowed here.
+    // NO PATCH/PUT/DELETE is sent to Google Calendar.
     const calendarUpdateFoundation = prepareCalendarUpdateFoundation(messageEnvoye);
-    if (calendarUpdateFoundation.handled) {
+    if (calendarUpdateFoundation.handled && calendarUpdateFoundation.draft) {
       const categorie = detecterCategorie(messageEnvoye);
       const importance = detecterImportance(messageEnvoye);
       ajouterMemoire(messageEnvoye, categorie, importance);
 
-      setRoseReponse(calendarUpdateFoundation.text);
+      const calendarResolveResult = await resolveGoogleCalendarEventForUpdate(
+        calendarUpdateFoundation.draft
+      );
+
+      setRoseReponse(calendarResolveResult.text);
       ajouterJournal(
-        `V10-043A : Calendar UPDATE DRAFT / execution-disabled / target=${calendarUpdateFoundation.draft?.targetHint ?? "unknown"} / change=${calendarUpdateFoundation.draft?.requestedChange ?? "unknown"}`
+        `V10-043B : Calendar EVENT RESOLVER / read-only / resolved=${calendarResolveResult.resolved} / confidence=${calendarResolveResult.confidence} / eventId=${calendarResolveResult.event?.id ?? "none"} / PATCH-PUT-DELETE=DISABLED`
       );
-      parler(calendarUpdateFoundation.text);
+      parler(calendarResolveResult.text);
       setMessage("");
+
       console.log(
-        `[Rose V10-043A] CALENDAR UPDATE DRAFT / execution=DISABLED / target=${calendarUpdateFoundation.draft?.targetHint ?? "unknown"}`
+        `[Rose V10-043B] EVENT RESOLVER RESULT / resolved=${calendarResolveResult.resolved} / confidence=${calendarResolveResult.confidence} / eventId=${calendarResolveResult.event?.id ?? "none"} / WRITE=DISABLED`
       );
+
+      if (calendarResolveResult.error) {
+        console.log(
+          "[Rose V10-043B] Event resolver error:",
+          calendarResolveResult.error
+        );
+      }
       return;
     }
     // Rose V10-042G - final Calendar create execution gate.
@@ -2098,6 +2112,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
 
 
 
