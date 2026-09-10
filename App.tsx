@@ -31,6 +31,7 @@ import {
 import { executeControlledGoogleCalendarCreate } from "./src/core/v10/calendar_controlled_create";
 import { prepareCalendarUpdateFoundation } from "./src/core/v10/calendar_update_foundation";
 import { resolveGoogleCalendarEventForUpdate } from "./src/core/v10/calendar_event_resolver";
+import { handleCalendarUpdateApproval, rememberPendingCalendarUpdate } from "./src/core/v10/calendar_update_approval";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -680,6 +681,26 @@ export default function App() {
     if (!message.trim()) return;
 
     const messageEnvoye = message;
+    // Rose V10-043C - explicit approval for an already resolved Calendar UPDATE.
+    // SECURITY: approval only. NO PATCH/PUT/DELETE is sent to Google Calendar.
+    const calendarUpdateApproval = handleCalendarUpdateApproval(messageEnvoye);
+    if (calendarUpdateApproval.handled) {
+      const categorie = detecterCategorie(messageEnvoye);
+      const importance = detecterImportance(messageEnvoye);
+      ajouterMemoire(messageEnvoye, categorie, importance);
+
+      setRoseReponse(calendarUpdateApproval.text);
+      ajouterJournal(
+        `V10-043C : Calendar UPDATE APPROVAL / approved=${calendarUpdateApproval.approved} / eventId=${calendarUpdateApproval.pending?.event.id ?? "none"} / WRITE=DISABLED`
+      );
+      parler(calendarUpdateApproval.text);
+      setMessage("");
+
+      console.log(
+        `[Rose V10-043C] CALENDAR UPDATE APPROVAL / approved=${calendarUpdateApproval.approved} / eventId=${calendarUpdateApproval.pending?.event.id ?? "none"} / PATCH-PUT-DELETE=DISABLED`
+      );
+      return;
+    }
     // Rose V10-043B - Google Calendar Event Resolver.
     // SECURITY: READ ONLY resolution. Only Google Calendar GET is allowed here.
     // NO PATCH/PUT/DELETE is sent to Google Calendar.
@@ -692,6 +713,13 @@ export default function App() {
       const calendarResolveResult = await resolveGoogleCalendarEventForUpdate(
         calendarUpdateFoundation.draft
       );
+
+      if (calendarResolveResult.resolved && calendarResolveResult.event) {
+        rememberPendingCalendarUpdate(
+          calendarUpdateFoundation.draft,
+          calendarResolveResult.event
+        );
+      }
 
       setRoseReponse(calendarResolveResult.text);
       ajouterJournal(
@@ -2112,6 +2140,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
 });
+
 
 
 
