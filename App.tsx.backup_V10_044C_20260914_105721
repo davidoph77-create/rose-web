@@ -36,13 +36,6 @@ import { executeControlledGoogleCalendarUpdate } from "./src/core/v10/calendar_c
 import { prepareCalendarDeleteFoundation } from "./src/core/v10/calendar_delete_foundation";
 import { resolveGoogleCalendarEventForDelete } from "./src/core/v10/calendar_delete_resolver";
 import { classifyCalendarDeleteHardRoute } from "./src/core/v10/calendar_delete_hard_route";
-import {
-  createCalendarDeleteApprovalState,
-  rememberPendingCalendarDelete,
-  handleCalendarDeleteApproval,
-  markCalendarDeleteApproved,
-  clearPendingCalendarDelete,
-} from "./src/core/v10/calendar_delete_approval";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -155,12 +148,6 @@ export default function App() {
   // Authorization is conversational only at this stage.
   const calendarExecutionGateRef = useRef(
     createCalendarExecutionGateState()
-  );
-
-  // Rose V10-044C - secure DELETE approval state.
-  // Local conversational confirmation only. Google Calendar DELETE HTTP stays disabled.
-  const calendarDeleteApprovalRef = useRef(
-    createCalendarDeleteApprovalState()
   );
 
   const [message, setMessage] = useState("");
@@ -699,36 +686,6 @@ export default function App() {
 
     const messageEnvoye = message;
 
-    // Rose V10-044C - secure confirmation for the previously resolved DELETE target.
-    // SECURITY: confirmation is local only. No Google Calendar DELETE request is sent.
-    const calendarDeleteApproval = handleCalendarDeleteApproval(
-      messageEnvoye,
-      calendarDeleteApprovalRef.current
-    );
-
-    if (calendarDeleteApproval.handled) {
-      if (calendarDeleteApproval.approved) {
-        calendarDeleteApprovalRef.current = markCalendarDeleteApproved(
-          calendarDeleteApprovalRef.current
-        );
-      } else if (calendarDeleteApproval.cancelled) {
-        calendarDeleteApprovalRef.current = clearPendingCalendarDelete(
-          calendarDeleteApprovalRef.current
-        );
-      }
-
-      setRoseReponse(calendarDeleteApproval.text);
-      ajouterJournal(
-        `V10-044C : Calendar DELETE APPROVAL / approved=${calendarDeleteApproval.approved} / cancelled=${calendarDeleteApproval.cancelled} / eventId=${calendarDeleteApproval.eventId ?? "none"} / DELETE=NOT-SENT`
-      );
-      parler(calendarDeleteApproval.text);
-      setMessage("");
-      console.log(
-        `[Rose V10-044C] DELETE APPROVAL / approved=${calendarDeleteApproval.approved} / cancelled=${calendarDeleteApproval.cancelled} / eventId=${calendarDeleteApproval.eventId ?? "none"} / DELETE=NOT-SENT`
-      );
-      return;
-    }
-
     // Rose V10-044B4 - ABSOLUTE DELETE ROUTING GUARD.
     // Runs before Calendar READ. DELETE HTTP remains disabled.
     const deleteHardRoute = classifyCalendarDeleteHardRoute(messageEnvoye);
@@ -773,33 +730,15 @@ export default function App() {
             forcedDeleteFoundation.draft
           );
 
-        let deleteResponseText = forcedDeleteResolveResult.text;
-
-        if (forcedDeleteResolveResult.resolved && forcedDeleteResolveResult.event?.id) {
-          calendarDeleteApprovalRef.current = rememberPendingCalendarDelete(
-            calendarDeleteApprovalRef.current,
-            forcedDeleteResolveResult.event
-          );
-          const deleteLabel = String(
-            forcedDeleteResolveResult.event?.summary ??
-            forcedDeleteResolveResult.event?.title ??
-            "cet evenement"
-          );
-          deleteResponseText =
-            `J'ai retrouve « ${deleteLabel} ». Veux-tu vraiment le supprimer de Google Calendar ? ` +
-            `Reponds exactement « Oui je confirme » pour autoriser l'etape suivante, ou « Non » pour annuler. ` +
-            `V10-044C n'envoie encore aucune suppression reelle.`;
-        }
-
-        setRoseReponse(deleteResponseText);
+        setRoseReponse(forcedDeleteResolveResult.text);
         ajouterJournal(
-          `V10-044C : Calendar DELETE RESOLVED / resolved=${forcedDeleteResolveResult.resolved} / confidence=${forcedDeleteResolveResult.confidence} / eventId=${forcedDeleteResolveResult.event?.id ?? "none"} / approval-required / DELETE=NOT-SENT`
+          `V10-044B4 : Calendar DELETE HARD ROUTE / resolved=${forcedDeleteResolveResult.resolved} / confidence=${forcedDeleteResolveResult.confidence} / eventId=${forcedDeleteResolveResult.event?.id ?? "none"} / DELETE=NOT-SENT`
         );
-        parler(deleteResponseText);
+        parler(forcedDeleteResolveResult.text);
         setMessage("");
 
         console.log(
-          `[Rose V10-044C] DELETE RESOLVER RESULT / resolved=${forcedDeleteResolveResult.resolved} / confidence=${forcedDeleteResolveResult.confidence} / eventId=${forcedDeleteResolveResult.event?.id ?? "none"} / approval-required / DELETE=NOT-SENT`
+          `[Rose V10-044B4] DELETE RESOLVER RESULT / resolved=${forcedDeleteResolveResult.resolved} / confidence=${forcedDeleteResolveResult.confidence} / eventId=${forcedDeleteResolveResult.event?.id ?? "none"} / DELETE=NOT-SENT`
         );
         return;
       }
@@ -829,30 +768,14 @@ export default function App() {
       const calendarDeleteResolveResult = await resolveGoogleCalendarEventForDelete(
         calendarDeleteFoundation.draft
       );
-      let deleteResponseText = calendarDeleteResolveResult.text;
-      if (calendarDeleteResolveResult.resolved && calendarDeleteResolveResult.event?.id) {
-        calendarDeleteApprovalRef.current = rememberPendingCalendarDelete(
-          calendarDeleteApprovalRef.current,
-          calendarDeleteResolveResult.event
-        );
-        const deleteLabel = String(
-          calendarDeleteResolveResult.event?.summary ??
-          calendarDeleteResolveResult.event?.title ??
-          "cet evenement"
-        );
-        deleteResponseText =
-          `J'ai retrouve « ${deleteLabel} ». Veux-tu vraiment le supprimer de Google Calendar ? ` +
-          `Reponds exactement « Oui je confirme » pour autoriser l'etape suivante, ou « Non » pour annuler. ` +
-          `V10-044C n'envoie encore aucune suppression reelle.`;
-      }
-      setRoseReponse(deleteResponseText);
+      setRoseReponse(calendarDeleteResolveResult.text);
       ajouterJournal(
-        `V10-044C : Calendar DELETE EVENT RESOLVER / resolved=${calendarDeleteResolveResult.resolved} / confidence=${calendarDeleteResolveResult.confidence} / eventId=${calendarDeleteResolveResult.event?.id ?? "none"} / approval-required / DELETE=NOT-SENT`
+        `V10-044B : Calendar DELETE EVENT RESOLVER / read-only / resolved=${calendarDeleteResolveResult.resolved} / confidence=${calendarDeleteResolveResult.confidence} / eventId=${calendarDeleteResolveResult.event?.id ?? "none"} / DELETE=NOT-SENT`
       );
-      parler(deleteResponseText);
+      parler(calendarDeleteResolveResult.text);
       setMessage("");
       console.log(
-        `[Rose V10-044C] CALENDAR DELETE EVENT RESOLVER / resolved=${calendarDeleteResolveResult.resolved} / confidence=${calendarDeleteResolveResult.confidence} / eventId=${calendarDeleteResolveResult.event?.id ?? "none"} / approval-required / DELETE=NOT-SENT`
+        `[Rose V10-044B] CALENDAR DELETE EVENT RESOLVER / resolved=${calendarDeleteResolveResult.resolved} / confidence=${calendarDeleteResolveResult.confidence} / eventId=${calendarDeleteResolveResult.event?.id ?? "none"} / DELETE=NOT-SENT`
       );
       if (calendarDeleteResolveResult.error) console.log("[Rose V10-044B] Delete resolver error:", calendarDeleteResolveResult.error);
       return;
