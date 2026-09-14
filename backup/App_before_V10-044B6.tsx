@@ -690,21 +690,6 @@ export default function App() {
     // Runs before Calendar READ. DELETE HTTP remains disabled.
     const deleteHardRoute = classifyCalendarDeleteHardRoute(messageEnvoye);
 
-    // Rose V10-044B6 - DELETE runtime diagnostic only.
-    // Diagnostic only: does not send any Google Calendar DELETE request.
-    const deleteRuntimeFirstToken = deleteHardRoute.firstToken ?? "";
-    const deleteRuntimeCodes = Array.from(deleteRuntimeFirstToken).map((char) =>
-      char.codePointAt(0)
-    );
-
-    console.log("[Rose V10-044B6] DELETE RUNTIME RAW =", JSON.stringify(messageEnvoye));
-    console.log("[Rose V10-044B6] DELETE RUNTIME NORMALIZED =", JSON.stringify(deleteHardRoute.normalized));
-    console.log("[Rose V10-044B6] DELETE RUNTIME FIRSTTOKEN =", JSON.stringify(deleteRuntimeFirstToken));
-    console.log("[Rose V10-044B6] DELETE RUNTIME CODES =", deleteRuntimeCodes);
-    console.log(
-      `[Rose V10-044B6] DELETE RUNTIME FLAGS / startsExplicitly=${deleteHardRoute.startsExplicitly} / verb=${deleteHardRoute.hasDeleteVerb} / calendarObject=${deleteHardRoute.hasCalendarObject} / matched=${deleteHardRoute.matched}`
-    );
-
     console.log(
       `[Rose V10-044B4] ROUTER ENTRY / normalized="${deleteHardRoute.normalized}"`
     );
