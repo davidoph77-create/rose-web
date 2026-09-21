@@ -32,6 +32,8 @@ export async function refreshAgendaCalendarBridge(
     end: event.end,
     location: event.location,
     source: "google-calendar",
+    sourceCalendarId: event.calendarId,
+    sourceCalendarName: event.calendarName,
     readOnly: true,
   }));
 

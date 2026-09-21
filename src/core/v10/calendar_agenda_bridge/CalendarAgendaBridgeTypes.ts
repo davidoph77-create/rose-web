@@ -5,6 +5,8 @@ export type AgendaCalendarItem = {
   end?: string;
   location?: string;
   source: "google-calendar";
+  sourceCalendarId?: string;
+  sourceCalendarName?: string;
   readOnly: true;
 };
 

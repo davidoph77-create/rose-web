@@ -6,6 +6,8 @@ export type RoseCalendarEvent = {
   location?: string;
   htmlLink?: string;
   allDay?: boolean;
+  calendarId?: string;
+  calendarName?: string;
 };
 
 export type CalendarReadResult = {
