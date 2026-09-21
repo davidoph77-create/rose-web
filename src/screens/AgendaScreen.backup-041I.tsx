@@ -18,7 +18,7 @@ import {
   refreshAgendaCalendarBridge,
 } from "../core/v10/calendar_agenda_bridge";
 
-import { connectGoogleCalendarFromApp } from "../core/v10/calendar_oauth_app/GoogleCalendarOAuthController";
+import { connectGoogleCalendarReadOnly } from "../core/v10/calendar_oauth";
 
 type AgendaScreenProps = {
   calendarEvents: RoseCalendarEvent[];
@@ -41,7 +41,7 @@ export default function AgendaScreen({
     try {
       setGoogleLoading(true);
       setGoogleError(undefined);
-      const connection = await connectGoogleCalendarFromApp();
+      const connection = await connectGoogleCalendarReadOnly();
       if (!connection.ok) {
         setGoogleError(connection.error || "Impossible de connecter Google Calendar.");
         return;

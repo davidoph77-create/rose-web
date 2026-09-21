@@ -18,8 +18,6 @@ import {
   refreshAgendaCalendarBridge,
 } from "../core/v10/calendar_agenda_bridge";
 
-import { connectGoogleCalendarFromApp } from "../core/v10/calendar_oauth_app/GoogleCalendarOAuthController";
-
 type AgendaScreenProps = {
   calendarEvents: RoseCalendarEvent[];
   setCalendarEvents: React.Dispatch<
@@ -36,25 +34,6 @@ export default function AgendaScreen({
   const [googleEvents, setGoogleEvents] = useState<AgendaCalendarItem[]>([]);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | undefined>();
-
-  const connectGoogleAgenda = useCallback(async () => {
-    try {
-      setGoogleLoading(true);
-      setGoogleError(undefined);
-      const connection = await connectGoogleCalendarFromApp();
-      if (!connection.ok) {
-        setGoogleError(connection.error || "Impossible de connecter Google Calendar.");
-        return;
-      }
-      const snapshot = await refreshAgendaCalendarBridge(20);
-      setGoogleEvents(snapshot.items);
-      setGoogleError(snapshot.error);
-    } catch (error: any) {
-      setGoogleError(error?.message || "Impossible de connecter Google Calendar.");
-    } finally {
-      setGoogleLoading(false);
-    }
-  }, []);
 
   const refreshGoogleAgenda = useCallback(async () => {
     try {
@@ -138,18 +117,6 @@ export default function AgendaScreen({
           Rose peut consulter ces rendez-vous Google, sans création,
           modification ni suppression.
         </Text>
-
-        <TouchableOpacity
-          style={styles.googleConnectButton}
-          onPress={connectGoogleAgenda}
-          disabled={googleLoading}
-        >
-          {googleLoading ? (
-            <ActivityIndicator />
-          ) : (
-            <Text style={styles.mainButtonText}>Connecter Google Calendar</Text>
-          )}
-        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.googleButton}
@@ -324,16 +291,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
     marginBottom: 8,
-  },
-
-  googleConnectButton: {
-    backgroundColor: "#059669",
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
   },
 
   googleButton: {

@@ -122,6 +122,11 @@ export async function readUpcomingGoogleCalendarEvents(
 ): Promise<CalendarReadResult> {
   try {
     const tokenResult = await getFreshAccessToken();
+    console.log("[ROSE CALENDAR READ] token:", {
+  available: Boolean(tokenResult.accessToken),
+  refreshed: tokenResult.refreshed,
+  error: tokenResult.error,
+});
 
     if (!tokenResult.accessToken) {
       return {
@@ -147,6 +152,7 @@ export async function readUpcomingGoogleCalendarEvents(
       tokenResult.accessToken,
       timeoutMs
     );
+    console.log("[ROSE CALENDAR READ] API HTTP:", response.status);
 
     // If Google rejected the token, try one silent refresh and one retry.
     if (response.status === 401) {
@@ -178,6 +184,7 @@ export async function readUpcomingGoogleCalendarEvents(
     }
 
     const data = await response.json();
+    console.log("[ROSE CALENDAR READ] API items:", data?.items?.length ?? 0);
 
     const events: RoseCalendarEvent[] = (data?.items || [])
       .map(normalizeEvent)

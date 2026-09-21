@@ -43,6 +43,7 @@ import {
   markCalendarDeleteApproved,
   clearPendingCalendarDelete,
 } from "./src/core/v10/calendar_delete_approval";
+import { executeControlledGoogleCalendarDelete } from "./src/core/v10/calendar_controlled_delete";
 import MemoireScreen from "./src/screens/MemoireScreen";
 import ObjectifsScreen from "./src/screens/ObjectifsScreen";
 import GoalsScreen from "./src/screens/GoalsScreen";
@@ -699,8 +700,9 @@ export default function App() {
 
     const messageEnvoye = message;
 
-    // Rose V10-044C - secure confirmation for the previously resolved DELETE target.
-    // SECURITY: confirmation is local only. No Google Calendar DELETE request is sent.
+    // Rose V10-044D1 - secure confirmation + controlled real Google Calendar DELETE.
+    // SECURITY: DELETE is sent only after the existing explicit confirmation flow approves
+    // the already-resolved eventId. No autonomous deletion and no fuzzy target at this stage.
     const calendarDeleteApproval = handleCalendarDeleteApproval(
       messageEnvoye,
       calendarDeleteApprovalRef.current
@@ -711,7 +713,60 @@ export default function App() {
         calendarDeleteApprovalRef.current = markCalendarDeleteApproved(
           calendarDeleteApprovalRef.current
         );
-      } else if (calendarDeleteApproval.cancelled) {
+
+        const approvedEventId = calendarDeleteApproval.eventId ?? null;
+
+        if (!approvedEventId) {
+          const safeDeleteError =
+            "La confirmation est recue, mais l'identifiant exact de l'evenement n'est plus disponible. Aucune suppression n'a ete envoyee.";
+          setRoseReponse(safeDeleteError);
+          ajouterJournal(
+            "V10-044D1 : Calendar DELETE blocked / approved=true / eventId=none / DELETE=NOT-SENT"
+          );
+          parler(safeDeleteError);
+          setMessage("");
+          console.log(
+            "[Rose V10-044D1] DELETE BLOCKED / approved=true / eventId=none / DELETE=NOT-SENT"
+          );
+          return;
+        }
+
+        console.log(
+          `[Rose V10-044D1] DELETE HTTP SEND / eventId=${approvedEventId}`
+        );
+
+        const calendarDeleteResult = await executeControlledGoogleCalendarDelete(
+          approvedEventId
+        );
+
+        if (calendarDeleteResult.ok && calendarDeleteResult.verifiedAbsent) {
+          calendarDeleteApprovalRef.current = clearPendingCalendarDelete(
+            calendarDeleteApprovalRef.current
+          );
+        }
+
+        setRoseReponse(calendarDeleteResult.text);
+        ajouterJournal(
+          `V10-044D1 : Google Calendar DELETE / ok=${calendarDeleteResult.ok} / deleted=${calendarDeleteResult.deleted} / verifiedAbsent=${calendarDeleteResult.verifiedAbsent} / eventId=${calendarDeleteResult.eventId ?? "none"} / status=${calendarDeleteResult.status ?? "none"}`
+        );
+        parler(calendarDeleteResult.text);
+        setMessage("");
+
+        console.log(
+          `[Rose V10-044D1] GOOGLE CALENDAR DELETE / ok=${calendarDeleteResult.ok} / deleted=${calendarDeleteResult.deleted} / verifiedAbsent=${calendarDeleteResult.verifiedAbsent} / eventId=${calendarDeleteResult.eventId ?? "none"} / status=${calendarDeleteResult.status ?? "none"}`
+        );
+
+        if (calendarDeleteResult.error) {
+          console.log(
+            "[Rose V10-044D1] Google Calendar delete error:",
+            calendarDeleteResult.error
+          );
+        }
+
+        return;
+      }
+
+      if (calendarDeleteApproval.cancelled) {
         calendarDeleteApprovalRef.current = clearPendingCalendarDelete(
           calendarDeleteApprovalRef.current
         );
@@ -719,12 +774,12 @@ export default function App() {
 
       setRoseReponse(calendarDeleteApproval.text);
       ajouterJournal(
-        `V10-044C : Calendar DELETE APPROVAL / approved=${calendarDeleteApproval.approved} / cancelled=${calendarDeleteApproval.cancelled} / eventId=${calendarDeleteApproval.eventId ?? "none"} / DELETE=NOT-SENT`
+        `V10-044D1 : Calendar DELETE APPROVAL / approved=${calendarDeleteApproval.approved} / cancelled=${calendarDeleteApproval.cancelled} / eventId=${calendarDeleteApproval.eventId ?? "none"} / DELETE=NOT-SENT`
       );
       parler(calendarDeleteApproval.text);
       setMessage("");
       console.log(
-        `[Rose V10-044C] DELETE APPROVAL / approved=${calendarDeleteApproval.approved} / cancelled=${calendarDeleteApproval.cancelled} / eventId=${calendarDeleteApproval.eventId ?? "none"} / DELETE=NOT-SENT`
+        `[Rose V10-044D1] DELETE APPROVAL / approved=${calendarDeleteApproval.approved} / cancelled=${calendarDeleteApproval.cancelled} / eventId=${calendarDeleteApproval.eventId ?? "none"} / DELETE=NOT-SENT`
       );
       return;
     }
@@ -1192,7 +1247,7 @@ export default function App() {
       message: messageEnvoye,
       metadata: {
         source: "RoseScreen",
-        appVersion: "V10-042H",
+        appVersion: "V10-044D1",
         autonomyEnabled: false,
         externalActionsAllowed: false,
       },
