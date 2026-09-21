@@ -135,9 +135,15 @@ export async function readUpcomingGoogleCalendarEvents(
   timeoutMs = DEFAULT_TIMEOUT_MS
 ): Promise<CalendarReadResult> {
   try {
+    const currentUser = GoogleSignin.getCurrentUser();
+    const activeEmail =
+      currentUser?.user?.email?.trim().toLowerCase() || "unknown";
+
+    console.log("[ROSE V10-044D3B CALENDAR] active account:", activeEmail);
+
     const tokenResult = await getFreshAccessToken();
 
-    console.log("[ROSE V10-044D2 CALENDAR] token:", {
+    console.log("[ROSE V10-044D3B CALENDAR] token:", {
       available: Boolean(tokenResult.accessToken),
       refreshed: tokenResult.refreshed,
       error: tokenResult.error,
@@ -178,7 +184,7 @@ export async function readUpcomingGoogleCalendarEvents(
       }))
       .filter((calendar: { id: string }) => Boolean(calendar.id));
 
-    console.log("[ROSE V10-044D2 CALENDAR] calendars:", calendars.length);
+    console.log("[ROSE V10-044D3B CALENDAR] calendars:", calendars.length);
 
     const allEvents: RoseCalendarEvent[] = [];
     const perCalendarLimit = Math.max(1, Math.min(maxResults, 25));
@@ -206,14 +212,14 @@ export async function readUpcomingGoogleCalendarEvents(
           );
 
         console.log(
-          `[ROSE V10-044D2 CALENDAR] ${calendar.summary}:`,
+          `[ROSE V10-044D3B CALENDAR] ${calendar.summary}:`,
           events.length
         );
 
         allEvents.push(...events);
       } catch (calendarError: any) {
         console.log(
-          `[ROSE V10-044D2 CALENDAR] skipped ${calendar.summary}:`,
+          `[ROSE V10-044D3B CALENDAR] skipped ${calendar.summary}:`,
           calendarError?.message || String(calendarError)
         );
       }
