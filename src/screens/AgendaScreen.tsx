@@ -20,6 +20,13 @@ import {
 
 import { connectGoogleCalendarFromApp } from "../core/v10/calendar_oauth_app/GoogleCalendarOAuthController";
 
+import {
+  getTodayCalendarIntelligence,
+  getTomorrowCalendarIntelligence,
+  getThisWeekCalendarIntelligence,
+  getNextCalendarEventIntelligence,
+} from "../core/v10/calendar_intelligence/CalendarIntelligence";
+
 type AgendaScreenProps = {
   calendarEvents: RoseCalendarEvent[];
   setCalendarEvents: React.Dispatch<
@@ -36,6 +43,23 @@ export default function AgendaScreen({
   const [googleEvents, setGoogleEvents] = useState<AgendaCalendarItem[]>([]);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | undefined>();
+  const [calendarIntelligence, setCalendarIntelligence] = useState({
+    today: "",
+    tomorrow: "",
+    thisWeek: "",
+    nextEvent: "",
+  });
+
+  const refreshCalendarIntelligence = useCallback(() => {
+    const next = {
+      today: getTodayCalendarIntelligence().summary,
+      tomorrow: getTomorrowCalendarIntelligence().summary,
+      thisWeek: getThisWeekCalendarIntelligence().summary,
+      nextEvent: getNextCalendarEventIntelligence().summary,
+    };
+    setCalendarIntelligence(next);
+    console.log("[ROSE V10-044D4 CALENDAR INTELLIGENCE]", next);
+  }, []);
 
   const connectGoogleAgenda = useCallback(async () => {
     try {
@@ -49,12 +73,13 @@ export default function AgendaScreen({
       const snapshot = await refreshAgendaCalendarBridge(20);
       setGoogleEvents(snapshot.items);
       setGoogleError(snapshot.error);
+      refreshCalendarIntelligence();
     } catch (error: any) {
       setGoogleError(error?.message || "Impossible de connecter Google Calendar.");
     } finally {
       setGoogleLoading(false);
     }
-  }, []);
+  }, [refreshCalendarIntelligence]);
 
   const refreshGoogleAgenda = useCallback(async () => {
     try {
@@ -63,12 +88,13 @@ export default function AgendaScreen({
       const snapshot = await refreshAgendaCalendarBridge(20);
       setGoogleEvents(snapshot.items);
       setGoogleError(snapshot.error);
+      refreshCalendarIntelligence();
     } catch (error: any) {
       setGoogleError(error?.message || "Impossible de lire Google Calendar.");
     } finally {
       setGoogleLoading(false);
     }
-  }, []);
+  }, [refreshCalendarIntelligence]);
 
   useEffect(() => {
     refreshGoogleAgenda();
@@ -170,6 +196,19 @@ export default function AgendaScreen({
         {!googleLoading && !googleError && googleEvents.length === 0 ? (
           <Text style={styles.googleEmpty}>Aucun rendez-vous Google à venir.</Text>
         ) : null}
+      </View>
+
+      <View style={styles.intelligenceCard}>
+        <Text style={styles.cardTitle}>Rose — Intelligence calendrier D4</Text>
+        <Text style={styles.googleReadOnly}>LECTURE SEULE</Text>
+        <Text style={styles.intelligenceLabel}>Aujourd’hui</Text>
+        <Text style={styles.text}>{calendarIntelligence.today || "Analyse en attente."}</Text>
+        <Text style={styles.intelligenceLabel}>Demain</Text>
+        <Text style={styles.text}>{calendarIntelligence.tomorrow || "Analyse en attente."}</Text>
+        <Text style={styles.intelligenceLabel}>Cette semaine</Text>
+        <Text style={styles.text}>{calendarIntelligence.thisWeek || "Analyse en attente."}</Text>
+        <Text style={styles.intelligenceLabel}>Prochain événement</Text>
+        <Text style={styles.text}>{calendarIntelligence.nextEvent || "Analyse en attente."}</Text>
       </View>
 
       {googleEvents.map((event) => (
@@ -308,6 +347,23 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 15,
     marginBottom: 12,
+  },
+
+  intelligenceCard: {
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#a855f7",
+    borderRadius: 18,
+    padding: 15,
+    marginBottom: 12,
+  },
+
+  intelligenceLabel: {
+    color: "#f9a8d4",
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 6,
+    marginBottom: 4,
   },
 
   googleEventCard: {
